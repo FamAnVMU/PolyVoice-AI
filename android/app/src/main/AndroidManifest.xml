@@ -22,6 +22,7 @@
         android:label="PolyVoice AI"
         android:name="${applicationName}"
         android:icon="@drawable/ic_launcher"
+        android:usesCleartextTraffic="true"
         android:enableOnBackInvokedCallback="true">
         <activity
             android:name=".MainActivity"

@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import '../../core/constants/api_endpoints.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/errors/failures.dart';
+import '../../core/network/network_logger.dart';
 import '../../features/chat/data/models/chat_message.dart';
 import 'llm_provider.dart';
 
@@ -15,9 +16,9 @@ class GeminiService implements LlmProvider {
       : _dio = dio ??
             Dio(
               BaseOptions(
-                connectTimeout: const Duration(seconds: 15),
-                sendTimeout: const Duration(seconds: 15),
-                receiveTimeout: const Duration(seconds: 35),
+                connectTimeout: const Duration(seconds: 20),
+                sendTimeout: const Duration(seconds: 20),
+                receiveTimeout: const Duration(seconds: 60),
               ),
             );
 
@@ -45,6 +46,8 @@ class GeminiService implements LlmProvider {
     }
 
     final url = ApiEndpoints.geminiStream(targetModel, cleanKey);
+    final stopwatch = Stopwatch()..start();
+    NetworkLogger.logRequest(service: 'Gemini', endpoint: url);
 
     // Format & sanitize Gemini history payload with strict turn alternation:
     // Gemini requires strict (user -> model -> user -> ...) alternation, starting and ending with user.
@@ -105,6 +108,16 @@ class GeminiService implements LlmProvider {
       });
     }
 
+    // Configure generation settings based on Gemini version:
+    // Gemini 3.x models (e.g. gemini-3.8-flash) no longer support 'temperature', 'topP', 'topK'.
+    final isGemini3 = targetModel.contains('gemini-3') || targetModel.contains('3.');
+    final Map<String, dynamic> generationConfig = {
+      'maxOutputTokens': 2048,
+    };
+    if (!isGemini3) {
+      generationConfig['temperature'] = 0.7;
+    }
+
     final Map<String, dynamic> body = {
       if (systemPrompt.trim().isNotEmpty)
         'systemInstruction': {
@@ -113,10 +126,7 @@ class GeminiService implements LlmProvider {
           ],
         },
       'contents': contents,
-      'generationConfig': {
-        'temperature': 0.7,
-        'maxOutputTokens': 2048,
-      },
+      'generationConfig': generationConfig,
     };
 
     Response<ResponseBody> response;
@@ -126,41 +136,67 @@ class GeminiService implements LlmProvider {
         data: body,
         options: Options(
           responseType: ResponseType.stream,
-          headers: {'Content-Type': 'application/json'},
-          sendTimeout: const Duration(seconds: 15),
-          receiveTimeout: const Duration(seconds: 35),
+          headers: {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': cleanKey,
+          },
+          sendTimeout: const Duration(seconds: 20),
+          receiveTimeout: const Duration(seconds: 60),
         ),
+      );
+
+      NetworkLogger.logResponse(
+        service: 'Gemini',
+        endpoint: url,
+        statusCode: response.statusCode ?? 200,
+        durationMs: stopwatch.elapsedMilliseconds,
       );
     } on DioException catch (e) {
       final errorDetail = await _extractDioErrorDetail(e);
       final statusCode = e.response?.statusCode;
 
+      NetworkLogger.logError(
+        service: 'Gemini',
+        endpoint: url,
+        error: errorDetail,
+        statusCode: statusCode,
+        durationMs: stopwatch.elapsedMilliseconds,
+      );
+
+      final userFriendlyMsg = NetworkLogger.formatUserMessage(
+        errorDetail,
+        service: 'Google Gemini',
+        model: targetModel,
+        statusCode: statusCode,
+      );
+
       if (statusCode == 400 || statusCode == 403) {
-        if (errorDetail.toLowerCase().contains('api key') ||
-            errorDetail.toLowerCase().contains('unauthorized') ||
-            statusCode == 403) {
-          throw ApiKeyFailure('Invalid or unauthorized Gemini API Key: $errorDetail', statusCode: statusCode);
-        }
-        throw ApiKeyFailure('Gemini Bad Request ($statusCode): $errorDetail', statusCode: statusCode);
+        throw ApiKeyFailure(userFriendlyMsg, statusCode: statusCode);
       } else if (statusCode == 429) {
-        throw RateLimitFailure('Gemini API rate limit reached: $errorDetail', statusCode: statusCode);
+        throw RateLimitFailure(userFriendlyMsg, statusCode: statusCode);
       } else if (statusCode == 404) {
-        throw NetworkFailure('Model "$targetModel" not found (404). Please verify model name: $errorDetail', statusCode: statusCode);
+        throw NetworkFailure(userFriendlyMsg, statusCode: statusCode);
       } else if (e.type == DioExceptionType.connectionTimeout ||
                  e.type == DioExceptionType.sendTimeout ||
                  e.type == DioExceptionType.receiveTimeout) {
-        throw const NetworkFailure('Connection timed out while connecting to Gemini. Please check your network.');
+        throw NetworkFailure('Hết thời gian chờ phản hồi từ Google Gemini (Timeout). Vui lòng thử lại.', statusCode: statusCode);
       } else if (e.type == DioExceptionType.connectionError) {
-        throw const NetworkFailure('Cannot connect to Gemini servers. Please check your internet connection.');
+        throw NetworkFailure('Không thể kết nối đến máy chủ Google Gemini. Vui lòng kiểm tra Internet.', statusCode: statusCode);
       }
-      throw NetworkFailure('Network error connecting to Gemini: $errorDetail', statusCode: statusCode);
+      throw NetworkFailure(userFriendlyMsg, statusCode: statusCode);
     } catch (e) {
-      throw NetworkFailure('Unexpected error connecting to Gemini: $e');
+      NetworkLogger.logError(
+        service: 'Gemini',
+        endpoint: url,
+        error: e,
+        durationMs: stopwatch.elapsedMilliseconds,
+      );
+      throw NetworkFailure('Lỗi không xác định khi kết nối Google Gemini: $e');
     }
 
     final stream = response.data?.stream;
     if (stream == null) {
-      throw const NetworkFailure('Empty response stream received from Gemini API.');
+      throw const NetworkFailure('Dữ liệu luồng trả về từ Google Gemini rỗng.');
     }
 
     // SSE Stream line parser
@@ -180,29 +216,73 @@ class GeminiService implements LlmProvider {
 
         try {
           final jsonMap = jsonDecode(dataStr) as Map<String, dynamic>;
+
+          // Check for API-level error in chunk
+          if (jsonMap['error'] != null) {
+            final errObj = jsonMap['error'];
+            final errMsg = errObj is Map ? (errObj['message']?.toString() ?? 'Gemini Error') : errObj.toString();
+            throw NetworkFailure('Lỗi từ Google Gemini: $errMsg');
+          }
+
+          // Format A: New Gemini 3 / Gemini 3.8 format (content.delta / delta)
+          // e.g. {"event_type": "content.delta", "delta": {"type": "text", "text": "..."}}
+          if (jsonMap['delta'] is Map) {
+            final delta = jsonMap['delta'] as Map<String, dynamic>;
+            final deltaType = delta['type']?.toString();
+            final deltaText = delta['text'] as String?;
+            // Filter out internal thinking tokens, yield visible text
+            if (deltaType != 'thought' && deltaType != 'thought_summary' && deltaText != null && deltaText.isNotEmpty) {
+              receivedAnyToken = true;
+              yield deltaText;
+              continue;
+            }
+          }
+
+          // Format B: Classic candidates format (Gemini 1.5, 2.0, 2.5, etc.)
           final candidates = jsonMap['candidates'] as List<dynamic>?;
           if (candidates != null && candidates.isNotEmpty) {
             final firstCandidate = candidates.first as Map<String, dynamic>;
+
+            // Check finishReason
+            final finishReason = firstCandidate['finishReason'] as String?;
+            if (finishReason == 'SAFETY') {
+              yield '\n\n[Lưu ý: Nội dung bị giới hạn bởi bộ lọc an toàn của Google Gemini]';
+              receivedAnyToken = true;
+              break;
+            }
+
             final content = firstCandidate['content'] as Map<String, dynamic>?;
             final parts = content?['parts'] as List<dynamic>?;
             if (parts != null && parts.isNotEmpty) {
-              final firstPart = parts.first as Map<String, dynamic>;
-              final String? text = firstPart['text'] as String?;
-              if (text != null && text.isNotEmpty) {
-                receivedAnyToken = true;
-                yield text;
+              for (final part in parts) {
+                if (part is Map<String, dynamic>) {
+                  final isThought = part['thought'] == true;
+                  final text = part['text'] as String?;
+                  if (!isThought && text != null && text.isNotEmpty) {
+                    receivedAnyToken = true;
+                    yield text;
+                  }
+                }
               }
+              continue;
             }
           }
-        } catch (_) {
-          // Skip malformed SSE chunks
+
+          // Format C: Direct text fallback
+          if (jsonMap['text'] is String && (jsonMap['text'] as String).isNotEmpty) {
+            receivedAnyToken = true;
+            yield jsonMap['text'] as String;
+          }
+        } catch (e) {
+          if (e is Failure) rethrow;
+          // Skip unparseable chunks safely
         }
       }
     }
 
     if (!receivedAnyToken) {
-      // Yield at least a space if Gemini returned empty candidates
-      yield '';
+      // Return a gentle fallback rather than crashing with NetworkFailure
+      yield 'Xin lỗi, mô hình không trả về nội dung cho câu hỏi này. Bạn hãy thử đặt lại câu hỏi nhé.';
     }
   }
 
@@ -212,18 +292,48 @@ class GeminiService implements LlmProvider {
     String? model,
     String? customBaseUrl,
   }) async {
+    final cleanKey = apiKey.trim();
+    if (cleanKey.isEmpty) return false;
+
+    String? targetModel = model?.trim();
+    if (targetModel != null && targetModel.startsWith('models/')) {
+      targetModel = targetModel.substring(7);
+    }
+
     try {
+      // 1. If a specific model is requested, test accessibility of that exact model
+      if (targetModel != null && targetModel.isNotEmpty) {
+        final specificModelUrl = '${ApiEndpoints.geminiBaseUrl}/models/$targetModel?key=$cleanKey';
+        final response = await _dio.get(
+          specificModelUrl,
+          options: Options(
+            headers: {'x-goog-api-key': cleanKey},
+            sendTimeout: const Duration(seconds: 10),
+            receiveTimeout: const Duration(seconds: 10),
+          ),
+        );
+        if (response.statusCode == 200) {
+          return true;
+        }
+      }
+
+      // 2. Fallback to testing the models catalog endpoint
+      final generalUrl = ApiEndpoints.geminiPing(cleanKey);
       final response = await _dio.get(
-        ApiEndpoints.geminiPing(apiKey.trim()),
+        generalUrl,
         options: Options(
-          sendTimeout: const Duration(seconds: 8),
-          receiveTimeout: const Duration(seconds: 8),
+          headers: {'x-goog-api-key': cleanKey},
+          sendTimeout: const Duration(seconds: 10),
+          receiveTimeout: const Duration(seconds: 10),
         ),
       );
       return response.statusCode == 200;
     } on DioException catch (e) {
+      final detail = await _extractDioErrorDetail(e);
       if (e.response?.statusCode == 400 || e.response?.statusCode == 403) {
-        throw const ApiKeyFailure('Invalid Gemini API key.');
+        throw ApiKeyFailure('Khóa Gemini API Key không hợp lệ hoặc bị từ chối: $detail', statusCode: e.response?.statusCode);
+      } else if (e.response?.statusCode == 404) {
+        throw NetworkFailure('Mô hình "$targetModel" không tìm thấy trên Google API (404). Vui lòng kiểm tra lại tên Model Identifier.', statusCode: 404);
       }
       return false;
     } catch (_) {
@@ -256,6 +366,22 @@ class GeminiService implements LlmProvider {
           }
         }
       } catch (_) {}
+    } else if (e.response?.data is Map) {
+      final map = e.response!.data as Map;
+      if (map['error'] is Map) {
+        return map['error']['message']?.toString() ?? map.toString();
+      } else if (map['error'] is String) {
+        return map['error'];
+      }
+    } else if (e.response?.data is String) {
+      final str = e.response!.data as String;
+      try {
+        final decoded = jsonDecode(str);
+        if (decoded is Map && decoded['error'] is Map) {
+          return decoded['error']['message']?.toString() ?? str;
+        }
+      } catch (_) {}
+      return str;
     }
     return e.message ?? e.toString();
   }

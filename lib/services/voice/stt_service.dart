@@ -8,6 +8,7 @@ import 'package:speech_to_text/speech_to_text.dart' as stt;
 import '../../core/constants/api_endpoints.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/errors/failures.dart';
+import '../../core/network/network_logger.dart';
 
 class SttService {
   final stt.SpeechToText _speechToText = stt.SpeechToText();
@@ -27,9 +28,9 @@ class SttService {
       : _dio = dio ??
             Dio(
               BaseOptions(
-                connectTimeout: const Duration(seconds: 15),
-                sendTimeout: const Duration(seconds: 25),
-                receiveTimeout: const Duration(seconds: 25),
+                connectTimeout: const Duration(seconds: 20),
+                sendTimeout: const Duration(seconds: 30),
+                receiveTimeout: const Duration(seconds: 30),
               ),
             );
 
@@ -57,6 +58,11 @@ class SttService {
       _isNativeInitialized = await _speechToText.initialize(
         onError: (val) {
           _isListening = false;
+          // Filter out transient silence timeouts from surfacing as fatal errors
+          final msg = val.errorMsg.toLowerCase();
+          if (msg.contains('no_match') || msg.contains('speech_timeout') || msg.contains('busy')) {
+            return;
+          }
           onError?.call(val.errorMsg);
         },
         onStatus: (val) {
@@ -67,7 +73,11 @@ class SttService {
       );
       return _isNativeInitialized;
     } catch (e) {
-      onError?.call(e.toString());
+      NetworkLogger.logError(
+        service: 'NativeSTT',
+        endpoint: 'on-device-engine',
+        error: e,
+      );
       return false;
     }
   }
@@ -82,7 +92,7 @@ class SttService {
   }) async {
     final hasPermission = await checkAndRequestPermissions();
     if (!hasPermission) {
-      throw const PermissionFailure('Microphone permission was denied. Please grant microphone access in device settings.');
+      throw const PermissionFailure('Quyền Microphone chưa được cấp. Vui lòng cấp quyền trong Cài đặt thiết bị.');
     }
 
     _lastRecognizedWords = '';
@@ -92,14 +102,14 @@ class SttService {
     if (_activeMode == AppConstants.sttModeOnDevice) {
       final initialized = await initializeNativeStt(onError: onError);
       if (!initialized) {
-        // Fallback to Groq Whisper if on-device STT is unavailable on this device
+        // Transparent fallback to Groq Whisper if on-device STT is unavailable
         if (groqApiKey != null && groqApiKey.trim().isNotEmpty) {
           _activeMode = AppConstants.sttModeGroqWhisper;
           await _startWhisperRecording();
           return;
         }
         _isListening = false;
-        throw const SttFailure('On-device speech engine could not be initialized. Please configure Groq Whisper mode in Settings.');
+        throw const SttFailure('Bộ nhận diện giọng nói cục bộ không khả dụng trên thiết bị. Bạn có thể bật Mode B: Groq Whisper trong Cài đặt.');
       }
 
       try {
@@ -123,13 +133,13 @@ class SttService {
           return;
         }
         _isListening = false;
-        throw SttFailure('On-device speech listening failed: $e');
+        throw SttFailure('Lỗi khi lắng nghe giọng nói: $e');
       }
     } else {
       // Mode B: Groq Whisper API recording
       if (groqApiKey == null || groqApiKey.trim().isEmpty) {
         _isListening = false;
-        throw const ApiKeyFailure('Groq Cloud API Key is required for Groq Whisper Mode. Please set it in Settings.');
+        throw const ApiKeyFailure('Cần có Groq Cloud API Key để sử dụng chế độ Whisper. Vui lòng thiết lập trong Cài đặt.');
       }
       await _startWhisperRecording();
     }
@@ -139,7 +149,7 @@ class SttService {
     final tempDir = await getTemporaryDirectory();
     _currentRecordingPath = '${tempDir.path}/polyvoice_stt_${DateTime.now().millisecondsSinceEpoch}.m4a';
 
-    final config = const RecordConfig(
+    const config = RecordConfig(
       encoder: AudioEncoder.aacLc,
       bitRate: 128000,
       sampleRate: 44100,
@@ -176,8 +186,14 @@ class SttService {
 
       final cleanGroqKey = (groqApiKey ?? '').trim();
       if (cleanGroqKey.isEmpty) {
-        throw const ApiKeyFailure('Groq API Key is missing for Whisper transcription.');
+        throw const ApiKeyFailure('Thiếu Groq API Key để chuyển đổi âm thanh thành văn bản.');
       }
+
+      final stopwatch = Stopwatch()..start();
+      NetworkLogger.logRequest(
+        service: 'GroqWhisper',
+        endpoint: ApiEndpoints.groqAudioTranscriptions,
+      );
 
       try {
         final formData = FormData.fromMap({
@@ -199,9 +215,16 @@ class SttService {
             headers: {
               'Authorization': 'Bearer $cleanGroqKey',
             },
-            sendTimeout: const Duration(seconds: 25),
-            receiveTimeout: const Duration(seconds: 25),
+            sendTimeout: const Duration(seconds: 30),
+            receiveTimeout: const Duration(seconds: 30),
           ),
+        );
+
+        NetworkLogger.logResponse(
+          service: 'GroqWhisper',
+          endpoint: ApiEndpoints.groqAudioTranscriptions,
+          statusCode: response.statusCode ?? 200,
+          durationMs: stopwatch.elapsedMilliseconds,
         );
 
         if (response.statusCode == 200 && response.data != null) {
@@ -214,12 +237,20 @@ class SttService {
         if (e.response?.data is Map) {
           detail = e.response?.data['error']?['message']?.toString() ?? detail;
         }
+        NetworkLogger.logError(
+          service: 'GroqWhisper',
+          endpoint: ApiEndpoints.groqAudioTranscriptions,
+          error: detail,
+          statusCode: e.response?.statusCode,
+          durationMs: stopwatch.elapsedMilliseconds,
+        );
+
         if (e.type == DioExceptionType.connectionTimeout || e.type == DioExceptionType.receiveTimeout) {
-          throw const NetworkFailure('Timeout during voice transcription. Please check your connection.');
+          throw const NetworkFailure('Hết thời gian chờ nhận diện giọng nói từ Groq Whisper (Timeout).');
         } else if (e.type == DioExceptionType.connectionError) {
-          throw const NetworkFailure('Cannot connect to Groq Whisper servers. Please check your internet connection.');
+          throw const NetworkFailure('Không thể kết nối đến máy chủ Groq Whisper. Vui lòng kiểm tra Internet.');
         }
-        throw SttFailure('Groq Whisper transcription failed: $detail');
+        throw SttFailure('Lỗi nhận diện âm thanh qua Whisper: $detail');
       } finally {
         try {
           if (await file.exists()) {

@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../core/network/network_logger.dart';
 import '../../core/utils/sentence_chunker.dart';
 import '../../features/chat/data/models/chat_message.dart';
 import '../../features/settings/data/models/api_keys_model.dart';
@@ -230,13 +231,13 @@ class VoicePipelineCoordinator {
         customBaseUrl: apiKeys.openRouterBaseUrl,
       );
 
-      // Timeout watchdog: if no response from LLM within 40 seconds, abort
+      // Timeout watchdog: if no response from LLM within 60 seconds, abort safely
       _streamTimeoutTimer?.cancel();
-      _streamTimeoutTimer = Timer(const Duration(seconds: 40), () {
+      _streamTimeoutTimer = Timer(const Duration(seconds: 60), () {
         if (_status == PipelineStatus.thinking) {
           _llmStreamSubscription?.cancel();
           _setStatus(PipelineStatus.error);
-          _notifyError('LLM request timed out. Please check your network and API key.');
+          _notifyError('Yêu cầu AI đã hết thời gian chờ phản hồi (Timeout). Vui lòng thử lại.');
         }
       });
 
@@ -257,7 +258,12 @@ class VoicePipelineCoordinator {
         onError: (e) {
           _streamTimeoutTimer?.cancel();
           _setStatus(PipelineStatus.error);
-          _notifyError(e.toString());
+          final cleanErr = NetworkLogger.formatUserMessage(
+            e,
+            service: apiKeys.selectedProvider,
+            model: apiKeys.selectedModel,
+          );
+          _notifyError(cleanErr);
         },
         onDone: () {
           _streamTimeoutTimer?.cancel();
@@ -280,7 +286,12 @@ class VoicePipelineCoordinator {
     } catch (e) {
       _streamTimeoutTimer?.cancel();
       _setStatus(PipelineStatus.error);
-      _notifyError(e.toString());
+      final cleanErr = NetworkLogger.formatUserMessage(
+        e,
+        service: apiKeys.selectedProvider,
+        model: apiKeys.selectedModel,
+      );
+      _notifyError(cleanErr);
     }
   }
 

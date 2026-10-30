@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import '../../core/constants/api_endpoints.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/errors/failures.dart';
+import '../../core/network/network_logger.dart';
 import '../../features/chat/data/models/chat_message.dart';
 import 'llm_provider.dart';
 
@@ -15,9 +16,9 @@ class GroqService implements LlmProvider {
       : _dio = dio ??
             Dio(
               BaseOptions(
-                connectTimeout: const Duration(seconds: 15),
-                sendTimeout: const Duration(seconds: 15),
-                receiveTimeout: const Duration(seconds: 35),
+                connectTimeout: const Duration(seconds: 20),
+                sendTimeout: const Duration(seconds: 20),
+                receiveTimeout: const Duration(seconds: 60),
               ),
             );
 
@@ -70,6 +71,9 @@ class GroqService implements LlmProvider {
       'max_tokens': 2048,
     };
 
+    final stopwatch = Stopwatch()..start();
+    NetworkLogger.logRequest(service: 'Groq', endpoint: ApiEndpoints.groqChatCompletions);
+
     Response<ResponseBody> response;
     try {
       response = await _dio.post<ResponseBody>(
@@ -81,37 +85,65 @@ class GroqService implements LlmProvider {
             'Authorization': 'Bearer $cleanKey',
             'Content-Type': 'application/json',
           },
-          sendTimeout: const Duration(seconds: 15),
-          receiveTimeout: const Duration(seconds: 35),
+          sendTimeout: const Duration(seconds: 20),
+          receiveTimeout: const Duration(seconds: 60),
         ),
+      );
+
+      NetworkLogger.logResponse(
+        service: 'Groq',
+        endpoint: ApiEndpoints.groqChatCompletions,
+        statusCode: response.statusCode ?? 200,
+        durationMs: stopwatch.elapsedMilliseconds,
       );
     } on DioException catch (e) {
       final errorDetail = await _extractDioErrorDetail(e);
       final statusCode = e.response?.statusCode;
 
+      NetworkLogger.logError(
+        service: 'Groq',
+        endpoint: ApiEndpoints.groqChatCompletions,
+        error: errorDetail,
+        statusCode: statusCode,
+        durationMs: stopwatch.elapsedMilliseconds,
+      );
+
+      final userFriendlyMsg = NetworkLogger.formatUserMessage(
+        errorDetail,
+        service: 'Groq Cloud',
+        model: targetModel,
+        statusCode: statusCode,
+      );
+
       if (statusCode == 401) {
-        throw ApiKeyFailure('Invalid Groq API Key: $errorDetail', statusCode: statusCode);
+        throw ApiKeyFailure(userFriendlyMsg, statusCode: statusCode);
       } else if (statusCode == 429) {
-        throw RateLimitFailure('Groq API rate limit reached: $errorDetail', statusCode: statusCode);
+        throw RateLimitFailure(userFriendlyMsg, statusCode: statusCode);
       } else if (statusCode == 400) {
-        throw ApiKeyFailure('Groq Bad Request (400): $errorDetail', statusCode: statusCode);
+        throw ApiKeyFailure(userFriendlyMsg, statusCode: statusCode);
       } else if (statusCode == 404) {
-        throw NetworkFailure('Groq model "$targetModel" not found (404): $errorDetail', statusCode: statusCode);
+        throw NetworkFailure(userFriendlyMsg, statusCode: statusCode);
       } else if (e.type == DioExceptionType.connectionTimeout ||
                  e.type == DioExceptionType.sendTimeout ||
                  e.type == DioExceptionType.receiveTimeout) {
-        throw const NetworkFailure('Connection timed out while connecting to Groq. Please check your network.');
+        throw NetworkFailure('Hết thời gian chờ phản hồi từ Groq (Timeout). Vui lòng thử lại.', statusCode: statusCode);
       } else if (e.type == DioExceptionType.connectionError) {
-        throw const NetworkFailure('Cannot connect to Groq servers. Please check your internet connection.');
+        throw NetworkFailure('Không thể kết nối đến máy chủ Groq. Vui lòng kiểm tra Internet.', statusCode: statusCode);
       }
-      throw NetworkFailure('Network error connecting to Groq: $errorDetail', statusCode: statusCode);
+      throw NetworkFailure(userFriendlyMsg, statusCode: statusCode);
     } catch (e) {
-      throw NetworkFailure('Unexpected error connecting to Groq: $e');
+      NetworkLogger.logError(
+        service: 'Groq',
+        endpoint: ApiEndpoints.groqChatCompletions,
+        error: e,
+        durationMs: stopwatch.elapsedMilliseconds,
+      );
+      throw NetworkFailure('Lỗi không xác định khi kết nối Groq: $e');
     }
 
     final stream = response.data?.stream;
     if (stream == null) {
-      throw const NetworkFailure('Empty response stream received from Groq API.');
+      throw const NetworkFailure('Dữ liệu luồng trả về từ Groq rỗng.');
     }
 
     final lineStream = stream
@@ -130,6 +162,13 @@ class GroqService implements LlmProvider {
 
         try {
           final jsonMap = jsonDecode(dataStr) as Map<String, dynamic>;
+
+          if (jsonMap['error'] != null) {
+            final errObj = jsonMap['error'];
+            final errMsg = errObj is Map ? (errObj['message']?.toString() ?? 'Groq Error') : errObj.toString();
+            throw NetworkFailure('Lỗi từ Groq API: $errMsg');
+          }
+
           final choices = jsonMap['choices'] as List<dynamic>?;
           if (choices != null && choices.isNotEmpty) {
             final firstChoice = choices.first as Map<String, dynamic>;
@@ -140,14 +179,15 @@ class GroqService implements LlmProvider {
               yield content;
             }
           }
-        } catch (_) {
+        } catch (e) {
+          if (e is Failure) rethrow;
           // Ignore partial or unparseable SSE chunks
         }
       }
     }
 
     if (!receivedAny) {
-      yield '';
+      yield 'Xin lỗi, Groq không trả về nội dung cho câu hỏi này. Bạn hãy thử đặt lại câu hỏi nhé.';
     }
   }
 
@@ -157,19 +197,23 @@ class GroqService implements LlmProvider {
     String? model,
     String? customBaseUrl,
   }) async {
+    final cleanKey = apiKey.trim();
+    if (cleanKey.isEmpty) return false;
+
     try {
       final response = await _dio.get(
         ApiEndpoints.groqModels,
         options: Options(
-          headers: {'Authorization': 'Bearer ${apiKey.trim()}'},
-          sendTimeout: const Duration(seconds: 8),
-          receiveTimeout: const Duration(seconds: 8),
+          headers: {'Authorization': 'Bearer $cleanKey'},
+          sendTimeout: const Duration(seconds: 10),
+          receiveTimeout: const Duration(seconds: 10),
         ),
       );
       return response.statusCode == 200;
     } on DioException catch (e) {
+      final detail = await _extractDioErrorDetail(e);
       if (e.response?.statusCode == 401) {
-        throw const ApiKeyFailure('Invalid Groq API key.');
+        throw ApiKeyFailure('Khóa Groq API Key không hợp lệ: $detail', statusCode: 401);
       }
       return false;
     } catch (_) {
@@ -202,6 +246,22 @@ class GroqService implements LlmProvider {
           }
         }
       } catch (_) {}
+    } else if (e.response?.data is Map) {
+      final map = e.response!.data as Map;
+      if (map['error'] is Map) {
+        return map['error']['message']?.toString() ?? map.toString();
+      } else if (map['error'] is String) {
+        return map['error'];
+      }
+    } else if (e.response?.data is String) {
+      final str = e.response!.data as String;
+      try {
+        final decoded = jsonDecode(str);
+        if (decoded is Map && decoded['error'] is Map) {
+          return decoded['error']['message']?.toString() ?? str;
+        }
+      } catch (_) {}
+      return str;
     }
     return e.message ?? e.toString();
   }

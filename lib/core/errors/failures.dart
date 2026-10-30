@@ -8,6 +8,9 @@ abstract class Failure extends Equatable {
 
   @override
   List<Object?> get props => [message, statusCode];
+
+  @override
+  String toString() => message;
 }
 
 class ApiKeyFailure extends Failure {
