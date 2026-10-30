@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import '../../core/constants/api_endpoints.dart';
 import '../../core/constants/app_constants.dart';
@@ -234,7 +235,11 @@ class GeminiService implements LlmProvider {
     if (e.response?.data is ResponseBody) {
       try {
         final responseBody = e.response!.data as ResponseBody;
-        final bytes = await responseBody.stream.reduce((a, b) => [...a, ...b]);
+        final builder = BytesBuilder(copy: false);
+        await for (final chunk in responseBody.stream) {
+          builder.add(chunk);
+        }
+        final bytes = builder.takeBytes();
         final text = utf8.decode(bytes);
         if (text.isNotEmpty) {
           try {
