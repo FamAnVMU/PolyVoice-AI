@@ -42,7 +42,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Host "`n[*] Dang tien hanh bien dich file APK (flutter build apk --release)..." -ForegroundColor Yellow
-& $flutterCmd build apk --release
+& $flutterCmd build apk --release --android-skip-build-dependency-validation
 
 if ($LASTEXITCODE -eq 0) {
     $apkPath = "build\app\outputs\flutter-apk\app-release.apk"
