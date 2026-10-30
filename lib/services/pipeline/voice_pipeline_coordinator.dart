@@ -251,7 +251,11 @@ class VoicePipelineCoordinator {
           if (enableVoicePlayback) {
             final completedSentences = _sentenceChunker.processToken(token);
             for (final sentence in completedSentences) {
-              ttsQueueManager.enqueue(sentence, voiceConfig);
+              ttsQueueManager.enqueue(
+                sentence,
+                voiceConfig,
+                geminiApiKey: apiKeys.geminiKey,
+              );
             }
           }
         },
@@ -271,7 +275,11 @@ class VoicePipelineCoordinator {
           if (enableVoicePlayback) {
             final remainder = _sentenceChunker.flush();
             if (remainder != null && remainder.isNotEmpty) {
-              ttsQueueManager.enqueue(remainder, voiceConfig);
+              ttsQueueManager.enqueue(
+                remainder,
+                voiceConfig,
+                geminiApiKey: apiKeys.geminiKey,
+              );
             }
           }
 

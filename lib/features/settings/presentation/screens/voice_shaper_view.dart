@@ -79,6 +79,7 @@ class _VoiceShaperViewState extends State<VoiceShaperView> with SingleTickerProv
       config: state.voiceConfig.copyWith(selectedVoiceId: voice.id),
       voice: voice,
       customVoices: state.customVoices,
+      geminiApiKey: state.apiKeys.geminiKey,
     );
 
     if (mounted) {

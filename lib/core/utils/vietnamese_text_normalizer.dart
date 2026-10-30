@@ -4,7 +4,7 @@
 /// loanwords into natural phonetics. Adds conversational breath pauses at punctuation
 /// marks to eliminate the monotonic "rap" tempo of raw TTS engines.
 class VietnameseTextNormalizer {
-  // Common Vietnamese abbreviations
+  // Common Vietnamese abbreviations & acronyms
   static final Map<String, String> _abbreviations = {
     'AI': 'trí tuệ nhân tạo',
     'TP.HCM': 'Thành phố Hồ Chí Minh',
@@ -65,6 +65,32 @@ class VietnameseTextNormalizer {
     'video': 'vi-đê-ô',
     'Audio': 'ô-đi-ô',
     'audio': 'ô-đi-ô',
+    'Facebook': 'phây-búc',
+    'Google': 'gú-gồ',
+    'YouTube': 'diu-túp',
+    'Zalo': 'da-lô',
+    'TikTok': 'tóp-tóp',
+    'Email': 'i-meo',
+    'Password': 'pát-guốc',
+    'Wi-Fi': 'oai-phai',
+    'Wifi': 'oai-phai',
+    'Bluetooth': 'bờ-lu-tút',
+    'Smartphone': 'xì-mát-phôn',
+    'Laptop': 'láp-tóp',
+    'PC': 'pi-xi',
+    'Update': 'úp-đết',
+    'Fix': 'phích',
+    'Bug': 'bấc',
+    'Check': 'chếch',
+    'Deadline': 'đét-lai',
+    'Task': 'tát',
+    'Team': 'tim',
+    'Meeting': 'mít-ting',
+    'Post': 'pốt',
+    'Like': 'lai',
+    'Share': 'se',
+    'Follow': 'pho-lâu',
+    'Game': 'gêm',
   };
 
   // Units of measurement
@@ -103,7 +129,11 @@ class VietnameseTextNormalizer {
   };
 
   /// Main entry point: normalizes text into natural, easy-to-pronounce Vietnamese speech.
-  static String normalize(String rawText, {bool addPauses = true}) {
+  static String normalize(
+    String rawText, {
+    String emotion = 'natural',
+    bool addPauses = true,
+  }) {
     if (rawText.trim().isEmpty) return '';
 
     String text = rawText;
@@ -124,7 +154,6 @@ class VietnameseTextNormalizer {
     );
 
     // 4. Currency and Percentage with numbers
-    // e.g., $50 -> 50 đô la Mỹ, 100k -> 100 nghìn, 50% -> 50 phần trăm
     text = text.replaceAllMapped(
       RegExp(r'\$(\d+([.,]\d+)?)'),
       (m) => '${m[1]} đô la Mỹ',
@@ -157,12 +186,12 @@ class VietnameseTextNormalizer {
       );
     }
 
-    // 7. Convert remaining digits to Vietnamese words for natural tone
+    // 7. Convert remaining isolated digits to Vietnamese words
     text = _convertNumbersToWords(text);
 
     // 8. Pace regulation & natural conversational pausing
     if (addPauses) {
-      text = _injectConversationalPauses(text);
+      text = _injectConversationalPauses(text, emotion: emotion);
     }
 
     // Clean multiple spaces and return
@@ -188,9 +217,8 @@ class VietnameseTextNormalizer {
     return out;
   }
 
-  /// Injects conversational breath pauses at punctuation boundaries
-  /// to eliminate monotonic rapid-fire speech.
-  static String _injectConversationalPauses(String text) {
+  /// Injects conversational breath pauses at punctuation and logical conjunctions
+  static String _injectConversationalPauses(String text, {String emotion = 'natural'}) {
     var out = text;
 
     // Expand ellipses ... into a thoughtful pause
@@ -205,6 +233,30 @@ class VietnameseTextNormalizer {
     // Emphasize exclamation
     out = out.replaceAllMapped(RegExp(r'!+'), (m) => '! , ');
 
+    // Inject breathing micro-pauses at natural Vietnamese discourse markers
+    const markers = [
+      'Tuy nhiên,',
+      'Do đó,',
+      'Bởi vì,',
+      'Mặt khác,',
+      'Hơn nữa,',
+      'Đặc biệt là,',
+      'Cụ thể là,',
+      'Tóm lại,',
+      'Chính vì vậy,',
+      'Ví dụ như,',
+    ];
+    for (final marker in markers) {
+      out = out.replaceAll(marker, '$marker , ');
+    }
+
+    // Emotion-specific pause adjustment
+    if (emotion == 'storytelling') {
+      out = out.replaceAll('. ', '... , ');
+    } else if (emotion == 'calm' || emotion == 'empathetic') {
+      out = out.replaceAll(', ', ', , ');
+    }
+
     return out;
   }
 
@@ -212,7 +264,6 @@ class VietnameseTextNormalizer {
   static String _convertNumbersToWords(String text) {
     return text.replaceAllMapped(RegExp(r'\b\d+\b'), (m) {
       final numStr = m[0]!;
-      // For years like 2026, convert nicely
       if (numStr.length == 4 && (numStr.startsWith('19') || numStr.startsWith('20'))) {
         return _readNumber(int.tryParse(numStr) ?? 0);
       }

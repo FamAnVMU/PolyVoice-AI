@@ -7,12 +7,14 @@ import '../../features/settings/data/models/voice_config_model.dart';
 import '../../features/voice/data/models/voice_model.dart';
 import '../../features/voice/data/preset_voices.dart';
 import 'elevenlabs_service.dart';
+import 'gemini_tts_service.dart';
 import 'native_media_service.dart';
 
 class TtsService {
   final FlutterTts _flutterTts = FlutterTts();
   final NativeMediaService _nativeMediaService = NativeMediaService();
   final ElevenLabsService _elevenLabsService = ElevenLabsService();
+  final GeminiTtsService _geminiTtsService = GeminiTtsService();
 
   bool _isPlaying = false;
   Completer<void>? _currentSpeechCompleter;
@@ -57,7 +59,7 @@ class TtsService {
     });
   }
 
-  /// Configures local TTS synthesis parameters with conversational pacing
+  /// Configures local TTS synthesis parameters with conversational pacing and exact voice mapping
   Future<void> configureVoice(VoiceConfigModel config, {VoiceModel? activeVoice}) async {
     try {
       await _flutterTts.setLanguage(config.languageCode);
@@ -74,36 +76,41 @@ class TtsService {
       // Clamp to natural human vocal ranges
       await _flutterTts.setPitch(effectivePitch.clamp(0.5, 2.0));
       // In FlutterTts, 0.45 - 0.50 on Android corresponds to ~0.85x - 0.90x human conversational speech
-      await _flutterTts.setSpeechRate((effectiveRate * 0.50).clamp(0.2, 1.0));
+      await _flutterTts.setSpeechRate((effectiveRate * 0.48).clamp(0.2, 1.0));
       await _flutterTts.setVolume(config.volume.clamp(0.0, 1.0));
 
-      if (config.voiceName != null && config.voiceLocale != null) {
-        await _flutterTts.setVoice({
-          'name': config.voiceName!,
-          'locale': config.voiceLocale!,
-        });
+      // Map to distinct system voice on Android (vi-vn-x-vid-network, vi-vn-x-vie-network, etc.)
+      final targetSystemVoice = activeVoice?.nativeSystemVoiceName ?? config.voiceName;
+      if (targetSystemVoice != null && targetSystemVoice.isNotEmpty) {
+        try {
+          await _flutterTts.setVoice({
+            'name': targetSystemVoice,
+            'locale': config.languageCode,
+          });
+        } catch (_) {}
       }
     } catch (e) {
       throw TtsFailure('Failed to configure TTS engine: $e');
     }
   }
 
-  /// Speaks text with Vietnamese human-like normalization and voice engine routing.
+  /// Speaks text with Vietnamese human-like normalization and multi-tier voice engine routing.
+  /// Tier 1: ElevenLabs Voice Cloning (if custom voice configured with ElevenLabs key)
+  /// Tier 2: Gemini Studio Neural Audio (ultra-realistic human intonation via existing Gemini key)
+  /// Tier 3: Enhanced Local Device Engine (native Android neural voice with conversational pacing)
   Future<void> speak(
     String rawText, {
     VoiceConfigModel? config,
     VoiceModel? voice,
     List<VoiceModel>? customVoices,
+    String? geminiApiKey,
   }) async {
     final cleanText = rawText.trim();
     if (cleanText.isEmpty) return;
 
-    // 1. Normalize text into natural spoken Vietnamese (expand acronyms, numbers, dates, pauses)
-    final normalizedText = VietnameseTextNormalizer.normalize(cleanText);
-
     final effectiveConfig = config ?? const VoiceConfigModel();
 
-    // 2. Resolve active VoiceModel
+    // 1. Resolve active VoiceModel
     VoiceModel? activeVoice = voice;
     if (activeVoice == null) {
       final voiceId = effectiveConfig.selectedVoiceId;
@@ -116,21 +123,27 @@ class TtsService {
       activeVoice ??= PresetVoices.findById(voiceId);
     }
 
+    // 2. Normalize text into natural spoken Vietnamese with emotion-aware prosody
+    final normalizedText = VietnameseTextNormalizer.normalize(
+      cleanText,
+      emotion: effectiveConfig.emotionPreset,
+    );
+
     _currentSpeechCompleter = Completer<void>();
     _isPlaying = true;
     onStart?.call();
 
-    // 3. Check if voice uses ElevenLabs Cloud Voice Cloning
+    // 3. TIER 1: ElevenLabs Cloud Voice Cloning
     final isElevenLabs = activeVoice.engineType == 'elevenlabs' ||
         effectiveConfig.voiceEngine == AppConstants.voiceEngineElevenLabs;
-    final apiKey = effectiveConfig.elevenLabsApiKey.trim();
+    final elevenLabsKey = effectiveConfig.elevenLabsApiKey.trim();
 
-    if (isElevenLabs && activeVoice.remoteVoiceId != null && apiKey.isNotEmpty) {
+    if (isElevenLabs && activeVoice.remoteVoiceId != null && elevenLabsKey.isNotEmpty) {
       try {
         final audioPath = await _elevenLabsService.synthesizeSpeech(
           text: normalizedText,
           voiceId: activeVoice.remoteVoiceId!,
-          apiKey: apiKey,
+          apiKey: elevenLabsKey,
           stability: effectiveConfig.stability,
           style: effectiveConfig.style,
         );
@@ -147,12 +160,45 @@ class TtsService {
         );
         return;
       } catch (e) {
-        // Fallback to Enhanced Device Voice Engine on cloud error
-        onError?.call('ElevenLabs voice unavailable, falling back to Enhanced Device Voice.');
+        // Fallback transparently to next tier
       }
     }
 
-    // 4. Enhanced Device Engine (Local TTS with Vietnamese Normalization & Human Pacing)
+    // 4. TIER 2: Google Gemini Studio Neural Audio (Studio-grade human realism)
+    final cleanGeminiKey = (geminiApiKey ?? '').trim();
+    final isGeminiPrebuilt = activeVoice.remoteVoiceId != null &&
+        ['Aoede', 'Kore', 'Puck', 'Charon', 'Fenrir'].contains(activeVoice.remoteVoiceId);
+
+    if (cleanGeminiKey.isNotEmpty &&
+        isGeminiPrebuilt &&
+        effectiveConfig.voiceEngine != AppConstants.voiceEngineDevice) {
+      try {
+        final audioPath = await _geminiTtsService.synthesizeSpeech(
+          text: normalizedText,
+          voiceName: activeVoice.remoteVoiceId!,
+          apiKey: cleanGeminiKey,
+          emotion: effectiveConfig.emotionPreset,
+          speed: effectiveConfig.rate,
+          pitch: effectiveConfig.pitch,
+        );
+
+        await _nativeMediaService.playAudio(
+          audioPath,
+          onCompleted: () {
+            _isPlaying = false;
+            onCompletion?.call();
+            if (_currentSpeechCompleter != null && !_currentSpeechCompleter!.isCompleted) {
+              _currentSpeechCompleter!.complete();
+            }
+          },
+        );
+        return;
+      } catch (_) {
+        // Fallback transparently to Tier 3 Enhanced Local Device TTS on network or API failure
+      }
+    }
+
+    // 5. TIER 3: Enhanced Device Engine (Local TTS with Distinct Native Voice Mapping & Human Pacing)
     try {
       await configureVoice(effectiveConfig, activeVoice: activeVoice);
       final result = await _flutterTts.speak(normalizedText);

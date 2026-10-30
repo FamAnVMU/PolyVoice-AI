@@ -10,6 +10,7 @@ class TtsQueueManager {
   final TtsService _ttsService;
   final Queue<String> _sentenceQueue = Queue<String>();
   VoiceConfigModel? _currentConfig;
+  String? _currentGeminiKey;
   bool _isProcessing = false;
   bool _isInterrupted = false;
 
@@ -22,11 +23,16 @@ class TtsQueueManager {
   TtsQueueManager(this._ttsService);
 
   /// Enqueues a new completed sentence for immediate or sequential speech playback.
-  void enqueue(String sentence, VoiceConfigModel config) {
+  void enqueue(
+    String sentence,
+    VoiceConfigModel config, {
+    String? geminiApiKey,
+  }) {
     final clean = sentence.trim();
     if (clean.isEmpty) return;
 
     _currentConfig = config;
+    _currentGeminiKey = geminiApiKey;
     _sentenceQueue.add(clean);
 
     if (!_isProcessing) {
@@ -45,7 +51,11 @@ class TtsQueueManager {
       onSentenceStarted?.call(sentence);
 
       try {
-        await _ttsService.speak(sentence, config: _currentConfig);
+        await _ttsService.speak(
+          sentence,
+          config: _currentConfig,
+          geminiApiKey: _currentGeminiKey,
+        );
       } catch (_) {
         // If one chunk fails, proceed to next
       }

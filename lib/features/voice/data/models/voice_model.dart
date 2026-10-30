@@ -7,14 +7,15 @@ class VoiceModel extends Equatable {
   final String gender; // 'female' | 'male' | 'neutral'
   final String accent; // 'north' (Bắc) | 'south' (Nam) | 'central' (Trung) | 'intl' (Quốc tế)
   final String category; // 'gentle', 'warm', 'dynamic', 'professional', 'storytelling', 'young', 'mature', 'custom'
-  final String engineType; // 'neural', 'elevenlabs', 'device', 'custom'
-  final String? remoteVoiceId; // Voice ID on remote cloud service (e.g., ElevenLabs)
+  final String engineType; // 'neural', 'gemini', 'elevenlabs', 'device', 'custom'
+  final String? remoteVoiceId; // Voice ID on remote cloud service (e.g. Aoede, Kore, Puck, Charon, Fenrir or ElevenLabs ID)
+  final String? nativeSystemVoiceName; // Android TTS voice name (e.g. vi-vn-x-vid-network, vi-vn-x-vie-network, vi-vn-x-vif-network)
   final String? referenceAudioPath; // Local path to audio/video reference file
   final bool isCustom;
   final DateTime createdAt;
   final double defaultSpeed;
   final double defaultPitch;
-  final String emotionPreset; // 'natural', 'cheerful', 'calm', 'expressive'
+  final String emotionPreset; // 'cheerful', 'calm', 'empathetic', 'serious', 'excited', 'natural', 'explanatory', 'storytelling'
   final String sampleText;
 
   const VoiceModel({
@@ -26,6 +27,7 @@ class VoiceModel extends Equatable {
     required this.category,
     this.engineType = 'neural',
     this.remoteVoiceId,
+    this.nativeSystemVoiceName,
     this.referenceAudioPath,
     this.isCustom = false,
     required this.createdAt,
@@ -44,6 +46,7 @@ class VoiceModel extends Equatable {
     String? category,
     String? engineType,
     String? remoteVoiceId,
+    String? nativeSystemVoiceName,
     String? referenceAudioPath,
     bool? isCustom,
     DateTime? createdAt,
@@ -61,6 +64,7 @@ class VoiceModel extends Equatable {
       category: category ?? this.category,
       engineType: engineType ?? this.engineType,
       remoteVoiceId: remoteVoiceId ?? this.remoteVoiceId,
+      nativeSystemVoiceName: nativeSystemVoiceName ?? this.nativeSystemVoiceName,
       referenceAudioPath: referenceAudioPath ?? this.referenceAudioPath,
       isCustom: isCustom ?? this.isCustom,
       createdAt: createdAt ?? this.createdAt,
@@ -81,6 +85,7 @@ class VoiceModel extends Equatable {
       'category': category,
       'engineType': engineType,
       'remoteVoiceId': remoteVoiceId,
+      'nativeSystemVoiceName': nativeSystemVoiceName,
       'referenceAudioPath': referenceAudioPath,
       'isCustom': isCustom,
       'createdAt': createdAt.toIso8601String(),
@@ -101,6 +106,7 @@ class VoiceModel extends Equatable {
       category: json['category'] as String? ?? 'custom',
       engineType: json['engineType'] as String? ?? 'custom',
       remoteVoiceId: json['remoteVoiceId'] as String?,
+      nativeSystemVoiceName: json['nativeSystemVoiceName'] as String?,
       referenceAudioPath: json['referenceAudioPath'] as String?,
       isCustom: json['isCustom'] as bool? ?? true,
       createdAt: json['createdAt'] != null
@@ -171,6 +177,7 @@ class VoiceModel extends Equatable {
         category,
         engineType,
         remoteVoiceId,
+        nativeSystemVoiceName,
         referenceAudioPath,
         isCustom,
         createdAt,

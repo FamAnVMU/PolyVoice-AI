@@ -2,117 +2,148 @@ import 'models/voice_model.dart';
 
 class PresetVoices {
   static final List<VoiceModel> allPresets = [
+    // 1. KHÁNH LINH (Nữ Bắc - Dịu dàng, truyền cảm, tâm sự)
     VoiceModel(
       id: 'preset_khanh_linh',
       name: 'Khánh Linh',
-      description: 'Dịu dàng, truyền cảm, ngữ điệu tự nhiên. Rất phù hợp cho trò chuyện đời thường, tâm sự và lắng nghe.',
+      description: 'Giọng nữ Hà Nội chuẩn: Dịu dàng, truyền cảm, ngữ điệu mềm mại tự nhiên. Thích hợp cho tâm sự, trò chuyện đời thường và chăm sóc.',
       gender: 'female',
       accent: 'north',
       category: 'gentle',
       engineType: 'neural',
+      remoteVoiceId: 'Aoede', // Google Studio Neural: Melodic & Sweet Female
+      nativeSystemVoiceName: 'vi-vn-x-vid-network', // Android Google Neural Female North
       createdAt: DateTime(2026, 1, 1),
       defaultSpeed: 0.88,
       defaultPitch: 1.05,
-      emotionPreset: 'cheerful',
-      sampleText: 'Chào bạn! Hôm nay công việc của bạn có thuận lợi không? Mình luôn ở đây để đồng hành cùng bạn nhé.',
+      emotionPreset: 'empathetic',
+      sampleText: 'Chào bạn! Hôm nay công việc của bạn có thuận lợi không? Mình luôn ở đây để lắng nghe và đồng hành cùng bạn nhé.',
     ),
-    VoiceModel(
-      id: 'preset_minh_an',
-      name: 'Minh An',
-      description: 'Trầm ấm, điềm tĩnh, phong thái phát thanh viên đài truyền hình. Rõ ràng, dễ tiếp thu khi giải thích kiến thức.',
-      gender: 'male',
-      accent: 'north',
-      category: 'warm',
-      engineType: 'neural',
-      createdAt: DateTime(2026, 1, 1),
-      defaultSpeed: 0.85,
-      defaultPitch: 0.95,
-      emotionPreset: 'calm',
-      sampleText: 'Xin chào. Trí tuệ nhân tạo đang thay đổi cách chúng ta làm việc mỗi ngày. Tôi rất sẵn lòng hỗ trợ bạn phân tích vấn đề này.',
-    ),
+
+    // 2. NGỌC ANH (Nữ Nam - Năng động, thanh thoát, hiện đại)
     VoiceModel(
       id: 'preset_ngoc_anh',
       name: 'Ngọc Anh',
-      description: 'Năng động, thanh thoát, rõ ràng, phong cách trợ lý công nghệ hiện đại. Thích hợp cho công việc và giải đáp thông tin nhanh.',
+      description: 'Giọng nữ Sài Gòn chuẩn: Tươi sáng, thanh thoát, rõ ràng, phong cách trợ lý công nghệ hiện đại. Thích hợp cho làm việc và giải đáp thông tin nhanh.',
       gender: 'female',
       accent: 'south',
       category: 'dynamic',
       engineType: 'neural',
+      remoteVoiceId: 'Kore', // Google Studio Neural: Crisp & Clear Female
+      nativeSystemVoiceName: 'vi-vn-x-vie-network', // Android Google Neural Female South
       createdAt: DateTime(2026, 1, 1),
       defaultSpeed: 0.90,
       defaultPitch: 1.02,
-      emotionPreset: 'natural',
-      sampleText: 'Dạ chào bạn! Lịch trình làm việc và các ghi chú quan trọng hôm nay đã sẵn sàng rồi nè. Mình bắt đầu nhé!',
-    ),
-    VoiceModel(
-      id: 'preset_gia_huy',
-      name: 'Gia Huy',
-      description: 'Tươi vui, hóm hỉnh, linh hoạt, tạo cảm giác thân thiện như một người bạn thân thiết cùng bàn.',
-      gender: 'male',
-      accent: 'south',
-      category: 'young',
-      engineType: 'neural',
-      createdAt: DateTime(2026, 1, 1),
-      defaultSpeed: 0.92,
-      defaultPitch: 1.00,
       emotionPreset: 'cheerful',
-      sampleText: 'Ê bạn ơi! Hôm nay có chuyện gì vui kể mình nghe với? Đừng để deadline làm bạn căng thẳng nha!',
+      sampleText: 'Dạ em chào anh chị ạ! Lịch trình làm việc và các ghi chú quan trọng hôm nay đã sẵn sàng rồi nè. Mình bắt đầu ngay nha!',
     ),
+
+    // 3. THẢO NHI (Nữ Trẻ - Trong trẻo, ngọt ngào, kể chuyện)
     VoiceModel(
       id: 'preset_thao_nhi',
       name: 'Thảo Nhi',
-      description: 'Ngọt ngào, trong trẻo, giàu biểu cảm và sắc thái ngữ điệu. Tuyệt vời cho kể chuyện cổ tích, đọc thơ và nội dung sáng tạo.',
+      description: 'Giọng nữ trẻ trong trẻo, ngọt ngào, ngân vang nhẹ, giàu biểu cảm. Rất tuyệt vời cho đọc truyện cổ tích, đọc thơ và nội dung sáng tạo.',
       gender: 'female',
       accent: 'north',
       category: 'storytelling',
       engineType: 'neural',
+      remoteVoiceId: 'Aoede',
+      nativeSystemVoiceName: 'vi-vn-x-via-local', // Android Google Young Female
       createdAt: DateTime(2026, 1, 1),
-      defaultSpeed: 0.85,
-      defaultPitch: 1.25,
-      emotionPreset: 'expressive',
-      sampleText: 'Ngày xửa ngày xưa, ở một ngôi làng nhỏ dưới chân núi mờ sương, có một đóa hoa ngọc lan kỳ diệu tỏa ngát hương thơm suốt bốn mùa...',
+      defaultSpeed: 0.84,
+      defaultPitch: 1.15,
+      emotionPreset: 'storytelling',
+      sampleText: 'Ngày xửa ngày xưa, ở một ngôi làng nhỏ dưới chân núi mờ sương, có một dòng suối trong vắt róc rách chảy suốt bốn mùa... Thật là kỳ diệu!',
     ),
-    VoiceModel(
-      id: 'preset_quoc_bao',
-      name: 'Quốc Bảo',
-      description: 'Chân thành, mộc mạc, nhịp điệu thong thả, mang âm sắc miền Trung ấm áp và sâu lắng.',
-      gender: 'male',
-      accent: 'central',
-      category: 'warm',
-      engineType: 'neural',
-      createdAt: DateTime(2026, 1, 1),
-      defaultSpeed: 0.86,
-      defaultPitch: 0.92,
-      emotionPreset: 'calm',
-      sampleText: 'Dạ chào bạn ạ! Rất vui được gặp bạn trong ngày hôm nay. Mình xin phép cùng bạn điểm qua nội dung tiếp theo nhé.',
-    ),
+
+    // 4. HOÀNG YẾN (Nữ Trưởng thành - Sắc sảo, chuyên nghiệp)
     VoiceModel(
       id: 'preset_hoang_yen',
       name: 'Hoàng Yến',
-      description: 'Trưởng thành, sắc sảo, đĩnh đạc, phát âm chuẩn xác. Chuyên dùng cho thuyết trình, đọc báo cáo và nội dung học thuật.',
+      description: 'Giọng nữ trưởng thành đĩnh đạc, phát âm chuẩn xác từng chữ, phong thái biên tập viên truyền hình. Chuyên dùng cho tin tức, báo cáo kinh doanh.',
       gender: 'female',
       accent: 'north',
       category: 'professional',
       engineType: 'neural',
+      remoteVoiceId: 'Kore',
+      nativeSystemVoiceName: 'vi-vn-x-vid-network',
       createdAt: DateTime(2026, 1, 1),
       defaultSpeed: 0.88,
       defaultPitch: 0.98,
-      emotionPreset: 'calm',
-      sampleText: 'Theo số liệu khảo sát quý gần nhất, hiệu suất vận hành đã tăng trưởng vượt bậc ba mươi phần trăm nhờ ứng dụng tự động hóa.',
+      emotionPreset: 'explanatory',
+      sampleText: 'Theo số liệu thống kê mới nhất, hiệu suất vận hành toàn diện đã tăng trưởng ba mươi phần trăm nhờ ứng dụng các giải pháp tự động hóa.',
     ),
+
+    // 5. MINH AN (Nam Bắc - Trầm ấm, điềm tĩnh)
+    VoiceModel(
+      id: 'preset_minh_an',
+      name: 'Minh An',
+      description: 'Giọng nam Hà Nội trầm ấm, độ vang tốt, đĩnh đạc và đáng tin cậy. Dễ tiếp thu khi phân tích kiến thức sâu hoặc đọc sách nói.',
+      gender: 'male',
+      accent: 'north',
+      category: 'warm',
+      engineType: 'neural',
+      remoteVoiceId: 'Charon', // Google Studio Neural: Deep & Resonant Male
+      nativeSystemVoiceName: 'vi-vn-x-vif-network', // Android Google Neural Male North
+      createdAt: DateTime(2026, 1, 1),
+      defaultSpeed: 0.86,
+      defaultPitch: 0.92,
+      emotionPreset: 'calm',
+      sampleText: 'Xin chào. Trí tuệ nhân tạo đang thay đổi cách chúng ta làm việc mỗi ngày. Tôi rất sẵn lòng cùng bạn phân tích chuyên sâu vấn đề này.',
+    ),
+
+    // 6. GIA HUY (Nam Nam - Năng động, thân thiện)
+    VoiceModel(
+      id: 'preset_gia_huy',
+      name: 'Gia Huy',
+      description: 'Giọng nam miền Nam tươi vui, trẻ trung, linh hoạt, tạo cảm giác thân thiết như một người bạn thân cùng bàn.',
+      gender: 'male',
+      accent: 'south',
+      category: 'young',
+      engineType: 'neural',
+      remoteVoiceId: 'Puck', // Google Studio Neural: Upbeat & Lively Male
+      nativeSystemVoiceName: 'vi-vn-x-vic-network', // Android Google Neural Male South
+      createdAt: DateTime(2026, 1, 1),
+      defaultSpeed: 0.92,
+      defaultPitch: 1.00,
+      emotionPreset: 'excited',
+      sampleText: 'Ê bạn ơi! Hôm nay có chuyện gì thú vị không? Cứ thoải mái tâm sự với mình nha, đừng để deadline làm bạn căng thẳng!',
+    ),
+
+    // 7. QUỐC BẢO (Nam Miền Trung - Chân thành, sâu lắng)
+    VoiceModel(
+      id: 'preset_quoc_bao',
+      name: 'Quốc Bảo',
+      description: 'Giọng nam miền Trung chân thành, mộc mạc, nhịp điệu thong thả, mang âm sắc Đà Nẵng sâu lắng và ấm cúng.',
+      gender: 'male',
+      accent: 'central',
+      category: 'warm',
+      engineType: 'neural',
+      remoteVoiceId: 'Fenrir', // Google Studio Neural: Grounded & Passionate Male
+      nativeSystemVoiceName: 'vi-vn-x-vib-local',
+      createdAt: DateTime(2026, 1, 1),
+      defaultSpeed: 0.86,
+      defaultPitch: 0.94,
+      emotionPreset: 'empathetic',
+      sampleText: 'Dạ chào bạn ạ! Rất vui được gặp bạn trong ngày hôm nay. Mình xin phép cùng bạn điểm qua các nội dung tiếp theo nhé.',
+    ),
+
+    // 8. ALEX (Song ngữ Anh - Việt hiện đại)
     VoiceModel(
       id: 'preset_alex_bilingual',
       name: 'Alex (Bilingual)',
-      description: 'Trung tính, phát âm tiếng Anh và tiếng Việt song ngữ cực chuẩn, hiện đại, chuẩn giọng trợ lý AI thế hệ mới.',
+      description: 'Giọng song ngữ Anh - Việt hiện đại, phát âm tiếng Anh cực chuẩn bản xứ kết hợp tiếng Việt tự nhiên, phù hợp trợ lý AI đa nhiệm.',
       gender: 'neutral',
       accent: 'intl',
       category: 'professional',
       engineType: 'neural',
+      remoteVoiceId: 'Puck',
+      nativeSystemVoiceName: 'en-us-x-sfg-network',
       createdAt: DateTime(2026, 1, 1),
       defaultSpeed: 0.90,
       defaultPitch: 1.00,
       emotionPreset: 'natural',
-      sampleText: 'Hello there! Tôi có thể chuyển đổi linh hoạt giữa English và Tiếng Việt một cách tự nhiên và chính xác.',
+      sampleText: 'Hello there! Tôi có thể chuyển đổi mượt mà giữa English và Tiếng Việt một cách tự nhiên và chính xác.',
     ),
   ];
 
