@@ -9,7 +9,7 @@ jobs:
   build:
     name: Build Release APK
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
 
     steps:
       - name: Checkout Code
@@ -20,14 +20,7 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
-
-      - name: Setup Pre-installed Android NDK
-        run: |
-          if [ -d "$ANDROID_SDK_ROOT/ndk" ]; then
-            NDK_VER=$(ls -1 "$ANDROID_SDK_ROOT/ndk" | sort -V | tail -n 1)
-            echo "ANDROID_NDK_VERSION=$NDK_VER" >> $GITHUB_ENV
-            echo "Using preinstalled NDK: $NDK_VER"
-          fi
+          cache: 'gradle'
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -35,14 +28,11 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Setup Gradle Cache
-        uses: gradle/actions/setup-gradle@v4
-
       - name: Install Dependencies
         run: flutter pub get
 
       - name: Build Release APK
-        run: flutter build apk --release --target-platform android-arm,android-arm64 --android-skip-build-dependency-validation
+        run: flutter build apk --release --android-skip-build-dependency-validation
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
