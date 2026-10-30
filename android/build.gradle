@@ -7,12 +7,13 @@ allprojects {
 
 rootProject.buildDir = '../build'
 
-// Global flutter fallback properties for any plugin subprojects
+// Global flutter fallback properties for any plugin subprojects (including :jni and :record_android)
 allprojects {
     project.ext.flutter = [
         compileSdkVersion: 36,
         targetSdkVersion: 34,
-        minSdkVersion: 24
+        minSdkVersion: 24,
+        ndkVersion: "25.1.8937393"
     ]
 }
 
@@ -21,7 +22,8 @@ subprojects {
     project.ext.flutter = [
         compileSdkVersion: 36,
         targetSdkVersion: 34,
-        minSdkVersion: 24
+        minSdkVersion: 24,
+        ndkVersion: "25.1.8937393"
     ]
 
     def configureAndroid = {
@@ -32,6 +34,9 @@ subprojects {
                 }
                 compileSdkVersion 36
                 buildToolsVersion "36.0.0"
+                try {
+                    ndkVersion "25.1.8937393"
+                } catch (Exception e) {}
             }
         }
     }
