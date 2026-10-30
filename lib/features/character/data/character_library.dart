@@ -403,4 +403,8 @@ class CharacterLibrary {
   static List<AICharacterModel> getFeatured() {
     return allCharacters.where((c) => c.isFeatured).toList();
   }
+
+  static List<AICharacterModel> getFeaturedCharacters() => getFeatured();
+
+  static List<AICharacterModel> getAllCharacters() => allCharacters;
 }

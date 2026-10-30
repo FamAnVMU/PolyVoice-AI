@@ -1,6 +1,6 @@
 import 'package:equatable/equatable.dart';
-import '../../character/data/models/ai_character_model.dart';
-import '../../profile/data/models/user_profile_model.dart';
+import '../../../character/data/models/ai_character_model.dart';
+import '../../../profile/data/models/user_profile_model.dart';
 
 abstract class ChatEvent extends Equatable {
   const ChatEvent();
