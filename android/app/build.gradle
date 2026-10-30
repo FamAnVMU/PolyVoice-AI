@@ -26,6 +26,9 @@ android {
     namespace "com.polyvoice.polyvoice_ai"
     compileSdk 36
 
+    // Use pre-installed NDK from GitHub Actions runner to avoid 15-20 min download
+    ndkVersion = System.getenv("ANDROID_NDK_VERSION") ?: "27.0.12077973"
+
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
