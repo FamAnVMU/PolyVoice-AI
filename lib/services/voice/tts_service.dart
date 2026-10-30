@@ -6,6 +6,7 @@ import '../../core/utils/vietnamese_text_normalizer.dart';
 import '../../features/settings/data/models/voice_config_model.dart';
 import '../../features/voice/data/models/voice_model.dart';
 import '../../features/voice/data/preset_voices.dart';
+import 'edge_tts_service.dart';
 import 'elevenlabs_service.dart';
 import 'gemini_tts_service.dart';
 import 'native_media_service.dart';
@@ -15,6 +16,7 @@ class TtsService {
   final NativeMediaService _nativeMediaService = NativeMediaService();
   final ElevenLabsService _elevenLabsService = ElevenLabsService();
   final GeminiTtsService _geminiTtsService = GeminiTtsService();
+  final EdgeTtsService _edgeTtsService = EdgeTtsService();
 
   bool _isPlaying = false;
   Completer<void>? _currentSpeechCompleter;
@@ -164,7 +166,38 @@ class TtsService {
       }
     }
 
-    // 4. TIER 2: Google Gemini Studio Neural Audio (Studio-grade human realism)
+    // 4. TIER 2: Microsoft Edge Neural TTS (100% Free, TV Broadcaster Natural Speech)
+    if (effectiveConfig.voiceEngine != AppConstants.voiceEngineDevice) {
+      try {
+        final edgeVoice = activeVoice.edgeVoiceName ??
+            (activeVoice.gender == 'male' ? 'vi-VN-NamMinhNeural' : 'vi-VN-HoaiMyNeural');
+
+        final audioPath = await _edgeTtsService.synthesizeSpeech(
+          text: normalizedText,
+          voiceName: edgeVoice,
+          rate: effectiveConfig.rate,
+          pitch: effectiveConfig.pitch,
+          volume: effectiveConfig.volume,
+          gender: activeVoice.gender,
+        );
+
+        await _nativeMediaService.playAudio(
+          audioPath,
+          onCompleted: () {
+            _isPlaying = false;
+            onCompletion?.call();
+            if (_currentSpeechCompleter != null && !_currentSpeechCompleter!.isCompleted) {
+              _currentSpeechCompleter!.complete();
+            }
+          },
+        );
+        return;
+      } catch (_) {
+        // Fallback transparently to Tier 3 Gemini Studio Neural Audio
+      }
+    }
+
+    // 5. TIER 3: Google Gemini Studio Neural Audio (Studio-grade human realism)
     final cleanGeminiKey = (geminiApiKey ?? '').trim();
     final isGeminiPrebuilt = activeVoice.remoteVoiceId != null &&
         ['Aoede', 'Kore', 'Puck', 'Charon', 'Fenrir'].contains(activeVoice.remoteVoiceId);
@@ -194,11 +227,11 @@ class TtsService {
         );
         return;
       } catch (_) {
-        // Fallback transparently to Tier 3 Enhanced Local Device TTS on network or API failure
+        // Fallback transparently to Tier 4 Enhanced Local Device TTS on network or API failure
       }
     }
 
-    // 5. TIER 3: Enhanced Device Engine (Local TTS with Distinct Native Voice Mapping & Human Pacing)
+    // 6. TIER 4: Enhanced Device Engine (Local TTS with Distinct Native Voice Mapping & Human Pacing)
     try {
       await configureVoice(effectiveConfig, activeVoice: activeVoice);
       final result = await _flutterTts.speak(normalizedText);

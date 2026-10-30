@@ -621,6 +621,70 @@ class _VoiceShaperViewState extends State<VoiceShaperView> with SingleTickerProv
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Voice Engine Selector
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.white12),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.graphic_eq_rounded, color: AppColors.accentCyan, size: 18),
+                    SizedBox(width: 8),
+                    Text(
+                      'Động cơ giọng nói (Voice Engine)',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    ChoiceChip(
+                      label: const Text('Edge-TTS (Miễn phí 100% - Chuẩn MC VTV)'),
+                      selected: config.voiceEngine == AppConstants.voiceEngineEdgeTts ||
+                          config.voiceEngine == AppConstants.voiceEngineNeural,
+                      onSelected: (selected) {
+                        if (selected) {
+                          final updated = config.copyWith(voiceEngine: AppConstants.voiceEngineEdgeTts);
+                          context.read<SettingsBloc>().add(UpdateVoiceConfigEvent(updated));
+                        }
+                      },
+                    ),
+                    ChoiceChip(
+                      label: const Text('ElevenLabs (Voice Cloning)'),
+                      selected: config.voiceEngine == AppConstants.voiceEngineElevenLabs,
+                      onSelected: (selected) {
+                        if (selected) {
+                          final updated = config.copyWith(voiceEngine: AppConstants.voiceEngineElevenLabs);
+                          context.read<SettingsBloc>().add(UpdateVoiceConfigEvent(updated));
+                        }
+                      },
+                    ),
+                    ChoiceChip(
+                      label: const Text('Thiết bị (Offline)'),
+                      selected: config.voiceEngine == AppConstants.voiceEngineDevice,
+                      onSelected: (selected) {
+                        if (selected) {
+                          final updated = config.copyWith(voiceEngine: AppConstants.voiceEngineDevice);
+                          context.read<SettingsBloc>().add(UpdateVoiceConfigEvent(updated));
+                        }
+                      },
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
           // Pacing & Rate Slider (Natural Conversational Speed)
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,

@@ -12,6 +12,7 @@ class PresetVoices {
       category: 'gentle',
       engineType: 'neural',
       remoteVoiceId: 'Aoede', // Google Studio Neural: Melodic & Sweet Female
+      edgeVoiceName: 'vi-VN-HoaiMyNeural', // Microsoft Edge Neural: Hoài My (Nữ VTV chuẩn)
       nativeSystemVoiceName: 'vi-vn-x-vid-network', // Android Google Neural Female North
       createdAt: DateTime(2026, 1, 1),
       defaultSpeed: 0.88,
@@ -30,6 +31,7 @@ class PresetVoices {
       category: 'dynamic',
       engineType: 'neural',
       remoteVoiceId: 'Kore', // Google Studio Neural: Crisp & Clear Female
+      edgeVoiceName: 'vi-VN-HoaiMyNeural', // Microsoft Edge Neural: Hoài My
       nativeSystemVoiceName: 'vi-vn-x-vie-network', // Android Google Neural Female South
       createdAt: DateTime(2026, 1, 1),
       defaultSpeed: 0.90,
@@ -48,6 +50,7 @@ class PresetVoices {
       category: 'storytelling',
       engineType: 'neural',
       remoteVoiceId: 'Aoede',
+      edgeVoiceName: 'vi-VN-HoaiMyNeural',
       nativeSystemVoiceName: 'vi-vn-x-via-local', // Android Google Young Female
       createdAt: DateTime(2026, 1, 1),
       defaultSpeed: 0.84,
@@ -66,6 +69,7 @@ class PresetVoices {
       category: 'professional',
       engineType: 'neural',
       remoteVoiceId: 'Kore',
+      edgeVoiceName: 'vi-VN-HoaiMyNeural',
       nativeSystemVoiceName: 'vi-vn-x-vid-network',
       createdAt: DateTime(2026, 1, 1),
       defaultSpeed: 0.88,
@@ -84,6 +88,7 @@ class PresetVoices {
       category: 'warm',
       engineType: 'neural',
       remoteVoiceId: 'Charon', // Google Studio Neural: Deep & Resonant Male
+      edgeVoiceName: 'vi-VN-NamMinhNeural', // Microsoft Edge Neural: Nam Minh (Nam đài truyền hình)
       nativeSystemVoiceName: 'vi-vn-x-vif-network', // Android Google Neural Male North
       createdAt: DateTime(2026, 1, 1),
       defaultSpeed: 0.86,
@@ -102,6 +107,7 @@ class PresetVoices {
       category: 'young',
       engineType: 'neural',
       remoteVoiceId: 'Puck', // Google Studio Neural: Upbeat & Lively Male
+      edgeVoiceName: 'vi-VN-NamMinhNeural',
       nativeSystemVoiceName: 'vi-vn-x-vic-network', // Android Google Neural Male South
       createdAt: DateTime(2026, 1, 1),
       defaultSpeed: 0.92,
@@ -120,6 +126,7 @@ class PresetVoices {
       category: 'warm',
       engineType: 'neural',
       remoteVoiceId: 'Fenrir', // Google Studio Neural: Grounded & Passionate Male
+      edgeVoiceName: 'vi-VN-NamMinhNeural',
       nativeSystemVoiceName: 'vi-vn-x-vib-local',
       createdAt: DateTime(2026, 1, 1),
       defaultSpeed: 0.86,
@@ -138,6 +145,8 @@ class PresetVoices {
       category: 'professional',
       engineType: 'neural',
       remoteVoiceId: 'Puck',
+      edgeVoiceName: 'vi-VN-HoaiMyNeural',
+      nativeSystemVoiceName: 'en-us-x-sfg-network',
       nativeSystemVoiceName: 'en-us-x-sfg-network',
       createdAt: DateTime(2026, 1, 1),
       defaultSpeed: 0.90,

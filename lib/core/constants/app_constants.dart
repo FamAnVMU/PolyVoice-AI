@@ -17,8 +17,9 @@ class AppConstants {
   static const String sttModeGroqWhisper = 'groq_whisper';
 
   // Voice Engines
-  static const String voiceEngineNeural = 'neural';
+  static const String voiceEngineEdgeTts = 'edge_tts';
   static const String voiceEngineElevenLabs = 'elevenlabs';
+  static const String voiceEngineNeural = 'neural';
   static const String voiceEngineDevice = 'device';
 
   // Default Voice Settings - Human-like Natural Conversational Pacing

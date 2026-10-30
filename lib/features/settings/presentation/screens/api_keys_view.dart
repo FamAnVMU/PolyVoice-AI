@@ -309,11 +309,37 @@ class _ApiKeysViewState extends State<ApiKeysView> {
                 decoration: InputDecoration(
                   labelText: 'ElevenLabs API Key (Tùy chọn - Clone giọng)',
                   hintText: 'sk_...',
+                  helperText: 'Tùy chọn. Nếu để trống, ứng dụng tự động kích hoạt Edge-TTS Neural miễn phí 100%.',
+                  helperMaxLines: 2,
                   prefixIcon: const Icon(Icons.record_voice_over),
                   suffixIcon: IconButton(
                     icon: Icon(_obscureElevenLabs ? Icons.visibility : Icons.visibility_off),
                     onPressed: () => setState(() => _obscureElevenLabs = !_obscureElevenLabs),
                   ),
+                ),
+              ),
+
+              const SizedBox(height: 12),
+
+              // Edge-TTS Banner Badge
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: AppColors.accentCyan.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppColors.accentCyan.withOpacity(0.2)),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.verified, color: AppColors.accentCyan, size: 20),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Microsoft Edge-TTS đã sẵn sàng: Miễn phí vĩnh viễn, giọng Hoài My & Nam Minh chuẩn MC truyền hình.',
+                        style: TextStyle(fontSize: 11.5, color: Colors.white70),
+                      ),
+                    ),
+                  ],
                 ),
               ),
 
