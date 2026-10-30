@@ -32,7 +32,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     on<StopTapToSpeakEvent>(_onStopTapToSpeak);
     on<UpdateSttTranscriptPreviewEvent>(_onUpdateSttTranscriptPreview);
     on<ClearChatEvent>(_onClearChat);
-    on<SetAutoScrollLockEvent>(_onSetAutoScrollLock);
+    on<SetAutoScrollLockEvent>(_onSetAutoScrollLockEvent);
 
     _bindCoordinatorCallbacks();
   }

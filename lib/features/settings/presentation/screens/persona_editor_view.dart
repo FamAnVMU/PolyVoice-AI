@@ -175,7 +175,7 @@ class PersonaEditorView extends StatelessWidget {
               // Persona Cards List
               ListView.separated(
                 shrinkWrap: true,
-                physics: const NeverScrollableScrollException(),
+                physics: const NeverScrollableScrollPhysics(),
                 itemCount: state.personas.length,
                 separatorBuilder: (_, __) => const SizedBox(height: 12),
                 itemBuilder: (context, index) {
