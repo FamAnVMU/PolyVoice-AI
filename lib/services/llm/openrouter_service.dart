@@ -75,7 +75,7 @@ class OpenRouterService implements LlmProvider {
       'messages': messages,
       'stream': true,
       'temperature': 0.7,
-      'max_tokens': 2048,
+      'max_tokens': 8192,
     };
 
     final stopwatch = Stopwatch()..start();
@@ -162,38 +162,93 @@ class OpenRouterService implements LlmProvider {
         .transform(utf8.decoder)
         .transform(const LineSplitter());
 
-    bool receivedAny = false;
-    await for (final line in lineStream) {
-      final trimmed = line.trim();
-      if (trimmed.isEmpty) continue;
+    Stream<String> parseJsonChunk(Map<String, dynamic> jsonMap) async* {
+      if (jsonMap['error'] != null) {
+        final errObj = jsonMap['error'];
+        final errMsg = errObj is Map ? (errObj['message']?.toString() ?? 'OpenRouter Error') : errObj.toString();
+        throw NetworkFailure('Lỗi từ OpenRouter API: $errMsg');
+      }
 
-      if (trimmed.startsWith('data: ')) {
-        final dataStr = trimmed.substring(6).trim();
-        if (dataStr == '[DONE]') break;
+      final choices = jsonMap['choices'] as List<dynamic>?;
+      if (choices != null && choices.isNotEmpty) {
+        for (final choice in choices) {
+          if (choice is Map<String, dynamic>) {
+            final finishReason = choice['finish_reason'] as String?;
+            if (finishReason == 'length') {
+              yield '\n\n*(Lưu ý: Phản hồi đã đạt giới hạn độ dài tối đa của mô hình)*';
+              break;
+            }
 
-        try {
-          final jsonMap = jsonDecode(dataStr) as Map<String, dynamic>;
-
-          if (jsonMap['error'] != null) {
-            final errObj = jsonMap['error'];
-            final errMsg = errObj is Map ? (errObj['message']?.toString() ?? 'OpenRouter Error') : errObj.toString();
-            throw NetworkFailure('Lỗi từ OpenRouter API: $errMsg');
-          }
-
-          final choices = jsonMap['choices'] as List<dynamic>?;
-          if (choices != null && choices.isNotEmpty) {
-            final firstChoice = choices.first as Map<String, dynamic>;
-            final delta = firstChoice['delta'] as Map<String, dynamic>?;
+            final delta = choice['delta'] as Map<String, dynamic>?;
             final content = delta?['content'] as String?;
             if (content != null && content.isNotEmpty) {
-              receivedAny = true;
               yield content;
             }
           }
-        } catch (e) {
-          if (e is Failure) rethrow;
-          // Ignore partial or unparseable SSE chunks
         }
+      }
+    }
+
+    final StringBuffer eventBuffer = StringBuffer();
+    bool receivedAny = false;
+
+    await for (final line in lineStream) {
+      final trimmed = line.trim();
+
+      if (trimmed.isEmpty) {
+        if (eventBuffer.isNotEmpty) {
+          final payload = eventBuffer.toString().trim();
+          eventBuffer.clear();
+          if (payload == '[DONE]') break;
+          try {
+            final jsonMap = jsonDecode(payload) as Map<String, dynamic>;
+            await for (final token in parseJsonChunk(jsonMap)) {
+              receivedAny = true;
+              yield token;
+            }
+          } catch (_) {}
+        }
+        continue;
+      }
+
+      if (trimmed.startsWith('data:')) {
+        final payload = trimmed.substring(5).trim();
+        if (payload == '[DONE]') break;
+
+        bool parsedDirectly = false;
+        if (payload.startsWith('{') && payload.endsWith('}')) {
+          try {
+            final jsonMap = jsonDecode(payload) as Map<String, dynamic>;
+            parsedDirectly = true;
+            eventBuffer.clear();
+            await for (final token in parseJsonChunk(jsonMap)) {
+              receivedAny = true;
+              yield token;
+            }
+          } catch (_) {
+            parsedDirectly = false;
+          }
+        }
+
+        if (!parsedDirectly) {
+          if (eventBuffer.isNotEmpty) {
+            eventBuffer.write('\n');
+          }
+          eventBuffer.write(payload);
+        }
+      }
+    }
+
+    if (eventBuffer.isNotEmpty) {
+      final payload = eventBuffer.toString().trim();
+      if (payload != '[DONE]') {
+        try {
+          final jsonMap = jsonDecode(payload) as Map<String, dynamic>;
+          await for (final token in parseJsonChunk(jsonMap)) {
+            receivedAny = true;
+            yield token;
+          }
+        } catch (_) {}
       }
     }
 

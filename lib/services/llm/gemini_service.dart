@@ -96,14 +96,14 @@ class GeminiService implements LlmProvider {
       contents.add({
         'role': 'user',
         'parts': [
-          {'text': 'Hello'}
+          {'text': 'Xin chào'}
         ],
       });
     } else if (contents.last['role'] != 'user') {
       contents.add({
         'role': 'user',
         'parts': [
-          {'text': 'Please continue.'}
+          {'text': 'Hãy tiếp tục câu trả lời của bạn.'}
         ],
       });
     }
@@ -112,7 +112,7 @@ class GeminiService implements LlmProvider {
     // Gemini 3.x models (e.g. gemini-3.8-flash) no longer support 'temperature', 'topP', 'topK'.
     final isGemini3 = targetModel.contains('gemini-3') || targetModel.contains('3.');
     final Map<String, dynamic> generationConfig = {
-      'maxOutputTokens': 2048,
+      'maxOutputTokens': 8192,
     };
     if (!isGemini3) {
       generationConfig['temperature'] = 0.7;
@@ -199,84 +199,132 @@ class GeminiService implements LlmProvider {
       throw const NetworkFailure('Dữ liệu luồng trả về từ Google Gemini rỗng.');
     }
 
-    // SSE Stream line parser
+    // Robust SSE Stream line parser with multi-line JSON buffering & thinking filter
     final lineStream = stream
         .cast<List<int>>()
         .transform(utf8.decoder)
         .transform(const LineSplitter());
 
-    bool receivedAnyToken = false;
-    await for (final line in lineStream) {
-      final trimmed = line.trim();
-      if (trimmed.isEmpty) continue;
+    Stream<String> parseJsonChunk(Map<String, dynamic> jsonMap) async* {
+      // Check for API-level error in chunk
+      if (jsonMap['error'] != null) {
+        final errObj = jsonMap['error'];
+        final errMsg = errObj is Map ? (errObj['message']?.toString() ?? 'Gemini Error') : errObj.toString();
+        throw NetworkFailure('Lỗi từ Google Gemini: $errMsg');
+      }
 
-      if (trimmed.startsWith('data: ')) {
-        final dataStr = trimmed.substring(6).trim();
-        if (dataStr == '[DONE]') break;
+      // Format A: New Gemini 3 / Gemini 3.8 format (content.delta / delta)
+      // e.g. {"event_type": "content.delta", "delta": {"type": "text", "text": "..."}}
+      if (jsonMap['delta'] is Map) {
+        final delta = jsonMap['delta'] as Map<String, dynamic>;
+        final deltaType = delta['type']?.toString();
+        final deltaText = delta['text'] as String?;
+        const ignoredTypes = ['thought', 'thought_summary', 'draft', 'reasoning', 'internal'];
+        if (!ignoredTypes.contains(deltaType) && deltaText != null && deltaText.isNotEmpty) {
+          yield deltaText;
+        }
+      }
 
-        try {
-          final jsonMap = jsonDecode(dataStr) as Map<String, dynamic>;
-
-          // Check for API-level error in chunk
-          if (jsonMap['error'] != null) {
-            final errObj = jsonMap['error'];
-            final errMsg = errObj is Map ? (errObj['message']?.toString() ?? 'Gemini Error') : errObj.toString();
-            throw NetworkFailure('Lỗi từ Google Gemini: $errMsg');
-          }
-
-          // Format A: New Gemini 3 / Gemini 3.8 format (content.delta / delta)
-          // e.g. {"event_type": "content.delta", "delta": {"type": "text", "text": "..."}}
-          if (jsonMap['delta'] is Map) {
-            final delta = jsonMap['delta'] as Map<String, dynamic>;
-            final deltaType = delta['type']?.toString();
-            final deltaText = delta['text'] as String?;
-            // Filter out internal thinking tokens, yield visible text
-            if (deltaType != 'thought' && deltaType != 'thought_summary' && deltaText != null && deltaText.isNotEmpty) {
-              receivedAnyToken = true;
-              yield deltaText;
-              continue;
-            }
-          }
-
-          // Format B: Classic candidates format (Gemini 1.5, 2.0, 2.5, etc.)
-          final candidates = jsonMap['candidates'] as List<dynamic>?;
-          if (candidates != null && candidates.isNotEmpty) {
-            final firstCandidate = candidates.first as Map<String, dynamic>;
-
-            // Check finishReason
-            final finishReason = firstCandidate['finishReason'] as String?;
+      // Format B: Classic candidates format (Gemini 1.5, 2.0, 2.5, etc.)
+      final candidates = jsonMap['candidates'] as List<dynamic>?;
+      if (candidates != null && candidates.isNotEmpty) {
+        for (final candidate in candidates) {
+          if (candidate is Map<String, dynamic>) {
+            final finishReason = candidate['finishReason'] as String?;
             if (finishReason == 'SAFETY') {
-              yield '\n\n[Lưu ý: Nội dung bị giới hạn bởi bộ lọc an toàn của Google Gemini]';
-              receivedAnyToken = true;
+              yield '\n\n*(Lưu ý: Nội dung bị giới hạn bởi bộ lọc an toàn của Google Gemini)*';
+              break;
+            } else if (finishReason == 'MAX_TOKENS') {
+              yield '\n\n*(Lưu ý: Phản hồi đã đạt giới hạn độ dài tối đa của mô hình)*';
               break;
             }
 
-            final content = firstCandidate['content'] as Map<String, dynamic>?;
+            final content = candidate['content'] as Map<String, dynamic>?;
             final parts = content?['parts'] as List<dynamic>?;
-            if (parts != null && parts.isNotEmpty) {
+            if (parts != null) {
               for (final part in parts) {
                 if (part is Map<String, dynamic>) {
                   final isThought = part['thought'] == true;
                   final text = part['text'] as String?;
                   if (!isThought && text != null && text.isNotEmpty) {
-                    receivedAnyToken = true;
                     yield text;
                   }
                 }
               }
-              continue;
             }
           }
-
-          // Format C: Direct text fallback
-          if (jsonMap['text'] is String && (jsonMap['text'] as String).isNotEmpty) {
-            receivedAnyToken = true;
-            yield jsonMap['text'] as String;
-          }
-        } catch (e) {
-          if (e is Failure) rethrow;
-          // Skip unparseable chunks safely
         }
+      }
+
+      // Format C: Direct text fallback
+      if (jsonMap['text'] is String && (jsonMap['text'] as String).isNotEmpty) {
+        yield jsonMap['text'] as String;
+      }
+    }
+
+    final StringBuffer eventBuffer = StringBuffer();
+    bool receivedAnyToken = false;
+
+    await for (final line in lineStream) {
+      final trimmed = line.trim();
+
+      if (trimmed.isEmpty) {
+        // SSE event boundary
+        if (eventBuffer.isNotEmpty) {
+          final payload = eventBuffer.toString().trim();
+          eventBuffer.clear();
+          if (payload == '[DONE]') break;
+          try {
+            final jsonMap = jsonDecode(payload) as Map<String, dynamic>;
+            await for (final token in parseJsonChunk(jsonMap)) {
+              receivedAnyToken = true;
+              yield token;
+            }
+          } catch (_) {}
+        }
+        continue;
+      }
+
+      if (trimmed.startsWith('data:')) {
+        final payload = trimmed.substring(5).trim();
+        if (payload == '[DONE]') break;
+
+        // Fast-path: try parsing immediately if it is a complete JSON object on this line
+        bool parsedDirectly = false;
+        if (payload.startsWith('{') && payload.endsWith('}')) {
+          try {
+            final jsonMap = jsonDecode(payload) as Map<String, dynamic>;
+            parsedDirectly = true;
+            eventBuffer.clear();
+            await for (final token in parseJsonChunk(jsonMap)) {
+              receivedAnyToken = true;
+              yield token;
+            }
+          } catch (_) {
+            parsedDirectly = false;
+          }
+        }
+
+        if (!parsedDirectly) {
+          if (eventBuffer.isNotEmpty) {
+            eventBuffer.write('\n');
+          }
+          eventBuffer.write(payload);
+        }
+      }
+    }
+
+    // Flush any leftover in eventBuffer
+    if (eventBuffer.isNotEmpty) {
+      final payload = eventBuffer.toString().trim();
+      if (payload != '[DONE]') {
+        try {
+          final jsonMap = jsonDecode(payload) as Map<String, dynamic>;
+          await for (final token in parseJsonChunk(jsonMap)) {
+            receivedAnyToken = true;
+            yield token;
+          }
+        } catch (_) {}
       }
     }
 

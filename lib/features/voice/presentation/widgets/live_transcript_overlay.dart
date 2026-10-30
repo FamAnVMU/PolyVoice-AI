@@ -28,7 +28,7 @@ class LiveTranscriptOverlay extends StatelessWidget {
     }
 
     return Container(
-      constraints: const BoxConstraints(maxHeight: 180),
+      constraints: const BoxConstraints(maxHeight: 260),
       margin: const EdgeInsets.symmetric(horizontal: 20),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(

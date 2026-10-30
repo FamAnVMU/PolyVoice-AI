@@ -1,6 +1,7 @@
 import 'dart:async';
 import '../../core/network/network_logger.dart';
 import '../../core/utils/sentence_chunker.dart';
+import '../../core/utils/stream_response_sanitizer.dart';
 import '../../features/chat/data/models/chat_message.dart';
 import '../../features/settings/data/models/api_keys_model.dart';
 import '../../features/settings/data/models/persona_model.dart';
@@ -163,6 +164,26 @@ class VoicePipelineCoordinator {
     );
   }
 
+  /// Builds a reinforced system prompt ensuring strict language consistency,
+  /// in-depth responses with Markdown, and complete suppression of draft or thought tokens.
+  static String buildEffectiveSystemPrompt(String personaPrompt) {
+    return '''$personaPrompt
+
+QUY TẮC PHẢN HỒI VÀ NGÔN NGỮ (BẮT BUỘC TUÂN THỦ CHẶT CHẼ):
+1. ĐỒNG NHẤT NGÔN NGỮ (LANGUAGE CONSISTENCY):
+   - Luôn trả lời đúng ngôn ngữ mà người dùng sử dụng. Nếu người dùng hỏi bằng tiếng Việt, bạn phải trả lời 100% bằng tiếng Việt chuẩn mực, tự nhiên, trôi chảy từ đầu đến cuối. Tuyệt đối KHÔNG tự ý chuyển sang tiếng Anh, KHÔNG chêm tiếng Anh bừa bãi hay trộn lẫn hai ngôn ngữ trong cùng một câu trả lời.
+   - Nếu người dùng hỏi bằng tiếng Anh, hãy trả lời hoàn toàn bằng tiếng Anh.
+   - Các thuật ngữ chuyên ngành công nghệ (như API, Flutter, Widget, Token, Database, Keystore...) được giữ nguyên dạng tiếng Anh phổ biến và kèm giải thích bằng tiếng Việt ở lần xuất hiện đầu nếu cần.
+2. ĐỘ SÂU VÀ CHẤT LƯỢNG NỘI DUNG (DEPTH & COMPLETENESS):
+   - Với câu hỏi chào hỏi, xã giao ngắn: Trả lời tự nhiên, thân thiện, ngắn gọn vừa đủ.
+   - Với câu hỏi phân tích, học tập, kỹ thuật, hướng dẫn hoặc giải thích: Phải trả lời đầy đủ, chi tiết, có chiều sâu, lập luận chặt chẽ và không bỏ sót bất kỳ yêu cầu nào của người dùng.
+   - Sử dụng định dạng Markdown phong phú (tiêu đề #, danh sách gạch đầu dòng, các bước 1 2 3, khối mã code ```, bảng so sánh) để câu trả lời rành mạch, dễ đọc.
+   - Tuyệt đối không trả lời cộc lốc, không tự ý cắt cụt nội dung khi chưa giải thích xong.
+3. CHỈ TRẢ VỀ CÂU TRẢ LỜI HOÀN CHỈNH (NO DRAFT / NO INTERNAL THOUGHTS):
+   - Tuyệt đối không xuất ra bản nháp, suy nghĩ nội bộ, hoặc các nhãn như "Draft response:", "Draft:", "Thinking:", "<think>". Chỉ cung cấp trực tiếp câu trả lời cuối cùng hoàn chỉnh nhất cho người dùng.
+''';
+  }
+
   /// Core streaming pipeline:
   /// Takes user input -> calls selected LLM provider -> chunks sentences -> feeds TTS queue immediately.
   Future<void> processTextQuery({
@@ -180,6 +201,7 @@ class VoicePipelineCoordinator {
 
     final provider = llmFactory.getProvider(apiKeys.selectedProvider);
     final StringBuffer fullResponseBuffer = StringBuffer();
+    final sanitizer = StreamResponseSanitizer();
 
     // Determine the API key for selected provider
     String activeApiKey = '';
@@ -223,9 +245,11 @@ class VoicePipelineCoordinator {
     ];
 
     try {
+      final effectiveSystemPrompt = buildEffectiveSystemPrompt(persona.systemPrompt);
+
       final tokenStream = provider.streamChat(
         history: updatedHistory,
-        systemPrompt: persona.systemPrompt,
+        systemPrompt: effectiveSystemPrompt,
         apiKey: activeApiKey,
         model: apiKeys.selectedModel,
         customBaseUrl: apiKeys.openRouterBaseUrl,
@@ -242,20 +266,23 @@ class VoicePipelineCoordinator {
       });
 
       _llmStreamSubscription = tokenStream.listen(
-        (token) {
+        (rawToken) {
           _streamTimeoutTimer?.cancel();
-          fullResponseBuffer.write(token);
-          _notifyAiToken(fullResponseBuffer.toString());
+          final cleanTokens = sanitizer.processChunk(rawToken);
+          for (final token in cleanTokens) {
+            fullResponseBuffer.write(token);
+            _notifyAiToken(fullResponseBuffer.toString());
 
-          // Sentence-boundary chunking
-          if (enableVoicePlayback) {
-            final completedSentences = _sentenceChunker.processToken(token);
-            for (final sentence in completedSentences) {
-              ttsQueueManager.enqueue(
-                sentence,
-                voiceConfig,
-                geminiApiKey: apiKeys.geminiKey,
-              );
+            // Sentence-boundary chunking
+            if (enableVoicePlayback) {
+              final completedSentences = _sentenceChunker.processToken(token);
+              for (final sentence in completedSentences) {
+                ttsQueueManager.enqueue(
+                  sentence,
+                  voiceConfig,
+                  geminiApiKey: apiKeys.geminiKey,
+                );
+              }
             }
           }
         },
@@ -271,6 +298,23 @@ class VoicePipelineCoordinator {
         },
         onDone: () {
           _streamTimeoutTimer?.cancel();
+
+          final flushedToken = sanitizer.flush();
+          if (flushedToken != null && flushedToken.isNotEmpty) {
+            fullResponseBuffer.write(flushedToken);
+            _notifyAiToken(fullResponseBuffer.toString());
+            if (enableVoicePlayback) {
+              final completedSentences = _sentenceChunker.processToken(flushedToken);
+              for (final sentence in completedSentences) {
+                ttsQueueManager.enqueue(
+                  sentence,
+                  voiceConfig,
+                  geminiApiKey: apiKeys.geminiKey,
+                );
+              }
+            }
+          }
+
           // Flush any final text remaining in the sentence chunker
           if (enableVoicePlayback) {
             final remainder = _sentenceChunker.flush();
