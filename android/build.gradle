@@ -23,14 +23,8 @@ subprojects {
         targetSdkVersion: 34,
         minSdkVersion: 24
     ]
-}
 
-subprojects {
-    project.evaluationDependsOn(':app')
-}
-
-subprojects {
-    afterEvaluate { project ->
+    def configureAndroid = {
         if (project.hasProperty('android')) {
             project.android {
                 if (namespace == null) {
@@ -41,6 +35,18 @@ subprojects {
             }
         }
     }
+
+    if (project.state.executed) {
+        configureAndroid()
+    } else {
+        project.afterEvaluate {
+            configureAndroid()
+        }
+    }
+}
+
+subprojects {
+    project.evaluationDependsOn(':app')
 }
 
 tasks.register("clean", Delete) {
