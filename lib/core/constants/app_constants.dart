@@ -16,17 +16,25 @@ class AppConstants {
   static const String sttModeOnDevice = 'on_device';
   static const String sttModeGroqWhisper = 'groq_whisper';
 
-  // Default Voice Settings
-  static const double defaultPitch = 1.2; // Slightly higher for cute/warm vibe
-  static const double defaultRate = 1.0;
+  // Voice Engines
+  static const String voiceEngineNeural = 'neural';
+  static const String voiceEngineElevenLabs = 'elevenlabs';
+  static const String voiceEngineDevice = 'device';
+
+  // Default Voice Settings - Human-like Natural Conversational Pacing
+  static const double defaultPitch = 1.0;
+  static const double defaultRate = 0.88; // Relaxed natural conversational speed (no rap)
   static const double defaultVolume = 1.0;
   static const String defaultLanguage = 'vi-VN';
+  static const String defaultVoiceId = 'preset_khanh_linh';
 
   // Storage Keys
   static const String keyGeminiApiKey = 'polyvoice_gemini_api_key';
   static const String keyGroqApiKey = 'polyvoice_groq_api_key';
   static const String keyOpenRouterApiKey = 'polyvoice_openrouter_api_key';
   static const String keyOpenRouterBaseUrl = 'polyvoice_openrouter_base_url';
+  static const String keyElevenLabsApiKey = 'polyvoice_elevenlabs_api_key';
+  static const String keyCustomVoices = 'polyvoice_custom_voices';
 
   static const String keySelectedProvider = 'polyvoice_selected_provider';
   static const String keySelectedModel = 'polyvoice_selected_model';

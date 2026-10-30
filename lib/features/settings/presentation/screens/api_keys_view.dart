@@ -18,6 +18,7 @@ class _ApiKeysViewState extends State<ApiKeysView> {
   late TextEditingController _groqController;
   late TextEditingController _openRouterKeyController;
   late TextEditingController _openRouterUrlController;
+  late TextEditingController _elevenLabsKeyController;
   late TextEditingController _modelController;
 
   String _selectedProvider = AppConstants.providerGemini;
@@ -26,15 +27,18 @@ class _ApiKeysViewState extends State<ApiKeysView> {
   bool _obscureGemini = true;
   bool _obscureGroq = true;
   bool _obscureOpenRouter = true;
+  bool _obscureElevenLabs = true;
 
   @override
   void initState() {
     super.initState();
-    final keys = context.read<SettingsBloc>().state.apiKeys;
+    final state = context.read<SettingsBloc>().state;
+    final keys = state.apiKeys;
     _geminiController = TextEditingController(text: keys.geminiKey);
     _groqController = TextEditingController(text: keys.groqKey);
     _openRouterKeyController = TextEditingController(text: keys.openRouterKey);
     _openRouterUrlController = TextEditingController(text: keys.openRouterBaseUrl);
+    _elevenLabsKeyController = TextEditingController(text: state.voiceConfig.elevenLabsApiKey);
     _modelController = TextEditingController(text: keys.selectedModel);
     _selectedProvider = keys.selectedProvider;
     _sttMode = keys.sttMode;
@@ -46,12 +50,14 @@ class _ApiKeysViewState extends State<ApiKeysView> {
     _groqController.dispose();
     _openRouterKeyController.dispose();
     _openRouterUrlController.dispose();
+    _elevenLabsKeyController.dispose();
     _modelController.dispose();
     super.dispose();
   }
 
   void _saveKeys() {
-    final updated = context.read<SettingsBloc>().state.apiKeys.copyWith(
+    final state = context.read<SettingsBloc>().state;
+    final updated = state.apiKeys.copyWith(
           geminiKey: _geminiController.text.trim(),
           groqKey: _groqController.text.trim(),
           openRouterKey: _openRouterKeyController.text.trim(),
@@ -62,6 +68,12 @@ class _ApiKeysViewState extends State<ApiKeysView> {
         );
 
     context.read<SettingsBloc>().add(UpdateApiKeysEvent(updated));
+
+    final updatedVoiceConfig = state.voiceConfig.copyWith(
+      elevenLabsApiKey: _elevenLabsKeyController.text.trim(),
+    );
+    context.read<SettingsBloc>().add(UpdateVoiceConfigEvent(updatedVoiceConfig));
+
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('✓ API credentials saved securely!'),
@@ -286,6 +298,22 @@ class _ApiKeysViewState extends State<ApiKeysView> {
                   labelText: 'Custom Base URL (Optional)',
                   hintText: 'https://openrouter.ai/api/v1',
                   prefixIcon: Icon(Icons.link),
+                ),
+              ),
+              const SizedBox(height: 14),
+
+              // ElevenLabs Input (Voice Cloning & Human-like Voice)
+              TextField(
+                controller: _elevenLabsKeyController,
+                obscureText: _obscureElevenLabs,
+                decoration: InputDecoration(
+                  labelText: 'ElevenLabs API Key (Tùy chọn - Clone giọng)',
+                  hintText: 'sk_...',
+                  prefixIcon: const Icon(Icons.record_voice_over),
+                  suffixIcon: IconButton(
+                    icon: Icon(_obscureElevenLabs ? Icons.visibility : Icons.visibility_off),
+                    onPressed: () => setState(() => _obscureElevenLabs = !_obscureElevenLabs),
+                  ),
                 ),
               ),
 

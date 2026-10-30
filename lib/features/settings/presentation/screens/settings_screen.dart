@@ -39,7 +39,7 @@ class SettingsScreen extends StatelessWidget {
             tabs: [
               Tab(icon: Icon(Icons.key), text: 'BYOK Keys'),
               Tab(icon: Icon(Icons.face), text: 'Personas'),
-              Tab(icon: Icon(Icons.graphic_eq), text: 'Voice Shaper'),
+              Tab(icon: Icon(Icons.graphic_eq), text: 'Voice Studio'),
             ],
           ),
         ),

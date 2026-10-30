@@ -1,5 +1,6 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
+import '../../../voice/data/models/voice_model.dart';
 import '../../data/models/api_keys_model.dart';
 import '../../data/models/persona_model.dart';
 import '../../data/models/voice_config_model.dart';
@@ -13,6 +14,7 @@ class SettingsState extends Equatable {
   final PersonaModel activePersona;
   final VoiceConfigModel voiceConfig;
   final List<Map<String, String>> availableVoices;
+  final List<VoiceModel> customVoices;
   final ThemeMode themeMode;
   final ApiTestStatus testStatus;
   final String? testResultMessage;
@@ -25,6 +27,7 @@ class SettingsState extends Equatable {
     required this.activePersona,
     this.voiceConfig = const VoiceConfigModel(),
     this.availableVoices = const [],
+    this.customVoices = const [],
     this.themeMode = ThemeMode.dark,
     this.testStatus = ApiTestStatus.idle,
     this.testResultMessage,
@@ -38,6 +41,7 @@ class SettingsState extends Equatable {
     PersonaModel? activePersona,
     VoiceConfigModel? voiceConfig,
     List<Map<String, String>>? availableVoices,
+    List<VoiceModel>? customVoices,
     ThemeMode? themeMode,
     ApiTestStatus? testStatus,
     String? testResultMessage,
@@ -50,6 +54,7 @@ class SettingsState extends Equatable {
       activePersona: activePersona ?? this.activePersona,
       voiceConfig: voiceConfig ?? this.voiceConfig,
       availableVoices: availableVoices ?? this.availableVoices,
+      customVoices: customVoices ?? this.customVoices,
       themeMode: themeMode ?? this.themeMode,
       testStatus: testStatus ?? this.testStatus,
       testResultMessage: testResultMessage,
@@ -65,6 +70,7 @@ class SettingsState extends Equatable {
         activePersona,
         voiceConfig,
         availableVoices,
+        customVoices,
         themeMode,
         testStatus,
         testResultMessage,

@@ -1,10 +1,19 @@
 import 'dart:async';
 import 'package:flutter_tts/flutter_tts.dart';
+import '../../core/constants/app_constants.dart';
 import '../../core/errors/failures.dart';
+import '../../core/utils/vietnamese_text_normalizer.dart';
 import '../../features/settings/data/models/voice_config_model.dart';
+import '../../features/voice/data/models/voice_model.dart';
+import '../../features/voice/data/preset_voices.dart';
+import 'elevenlabs_service.dart';
+import 'native_media_service.dart';
 
 class TtsService {
   final FlutterTts _flutterTts = FlutterTts();
+  final NativeMediaService _nativeMediaService = NativeMediaService();
+  final ElevenLabsService _elevenLabsService = ElevenLabsService();
+
   bool _isPlaying = false;
   Completer<void>? _currentSpeechCompleter;
 
@@ -48,13 +57,25 @@ class TtsService {
     });
   }
 
-  /// Applies voice configuration (pitch, rate, volume, language, and selected voice engine).
-  Future<void> configureVoice(VoiceConfigModel config) async {
+  /// Configures local TTS synthesis parameters with conversational pacing
+  Future<void> configureVoice(VoiceConfigModel config, {VoiceModel? activeVoice}) async {
     try {
       await _flutterTts.setLanguage(config.languageCode);
-      await _flutterTts.setPitch(config.pitch);
-      await _flutterTts.setSpeechRate(config.rate);
-      await _flutterTts.setVolume(config.volume);
+
+      // Modulate pitch & rate using the active voice persona's default characteristics
+      double effectivePitch = config.pitch;
+      double effectiveRate = config.rate;
+
+      if (activeVoice != null) {
+        effectivePitch = activeVoice.defaultPitch * (config.pitch / AppConstants.defaultPitch);
+        effectiveRate = activeVoice.defaultSpeed * (config.rate / AppConstants.defaultRate);
+      }
+
+      // Clamp to natural human vocal ranges
+      await _flutterTts.setPitch(effectivePitch.clamp(0.5, 2.0));
+      // In FlutterTts, 0.45 - 0.50 on Android corresponds to ~0.85x - 0.90x human conversational speech
+      await _flutterTts.setSpeechRate((effectiveRate * 0.50).clamp(0.2, 1.0));
+      await _flutterTts.setVolume(config.volume.clamp(0.0, 1.0));
 
       if (config.voiceName != null && config.voiceLocale != null) {
         await _flutterTts.setVoice({
@@ -67,29 +88,98 @@ class TtsService {
     }
   }
 
-  /// Speaks a sentence and returns a Future that completes when playback ends.
-  Future<void> speak(String text, {VoiceConfigModel? config}) async {
-    if (text.trim().isEmpty) return;
+  /// Speaks text with Vietnamese human-like normalization and voice engine routing.
+  Future<void> speak(
+    String rawText, {
+    VoiceConfigModel? config,
+    VoiceModel? voice,
+    List<VoiceModel>? customVoices,
+  }) async {
+    final cleanText = rawText.trim();
+    if (cleanText.isEmpty) return;
 
-    if (config != null) {
-      await configureVoice(config);
+    // 1. Normalize text into natural spoken Vietnamese (expand acronyms, numbers, dates, pauses)
+    final normalizedText = VietnameseTextNormalizer.normalize(cleanText);
+
+    final effectiveConfig = config ?? const VoiceConfigModel();
+
+    // 2. Resolve active VoiceModel
+    VoiceModel? activeVoice = voice;
+    if (activeVoice == null) {
+      final voiceId = effectiveConfig.selectedVoiceId;
+      if (customVoices != null && customVoices.isNotEmpty) {
+        activeVoice = customVoices.cast<VoiceModel?>().firstWhere(
+              (v) => v?.id == voiceId,
+              orElse: () => null,
+            );
+      }
+      activeVoice ??= PresetVoices.findById(voiceId);
     }
 
     _currentSpeechCompleter = Completer<void>();
     _isPlaying = true;
+    onStart?.call();
 
-    final result = await _flutterTts.speak(text);
-    if (result == 1) {
-      await _currentSpeechCompleter?.future;
-    } else {
+    // 3. Check if voice uses ElevenLabs Cloud Voice Cloning
+    final isElevenLabs = activeVoice.engineType == 'elevenlabs' ||
+        effectiveConfig.voiceEngine == AppConstants.voiceEngineElevenLabs;
+    final apiKey = effectiveConfig.elevenLabsApiKey.trim();
+
+    if (isElevenLabs && activeVoice.remoteVoiceId != null && apiKey.isNotEmpty) {
+      try {
+        final audioPath = await _elevenLabsService.synthesizeSpeech(
+          text: normalizedText,
+          voiceId: activeVoice.remoteVoiceId!,
+          apiKey: apiKey,
+          stability: effectiveConfig.stability,
+          style: effectiveConfig.style,
+        );
+
+        await _nativeMediaService.playAudio(
+          audioPath,
+          onCompleted: () {
+            _isPlaying = false;
+            onCompletion?.call();
+            if (_currentSpeechCompleter != null && !_currentSpeechCompleter!.isCompleted) {
+              _currentSpeechCompleter!.complete();
+            }
+          },
+        );
+        return;
+      } catch (e) {
+        // Fallback to Enhanced Device Voice Engine on cloud error
+        onError?.call('ElevenLabs voice unavailable, falling back to Enhanced Device Voice.');
+      }
+    }
+
+    // 4. Enhanced Device Engine (Local TTS with Vietnamese Normalization & Human Pacing)
+    try {
+      await configureVoice(effectiveConfig, activeVoice: activeVoice);
+      final result = await _flutterTts.speak(normalizedText);
+      if (result == 1) {
+        await _currentSpeechCompleter?.future;
+      } else {
+        _isPlaying = false;
+      }
+    } catch (e) {
       _isPlaying = false;
+      onError?.call('TTS error: $e');
+      if (_currentSpeechCompleter != null && !_currentSpeechCompleter!.isCompleted) {
+        _currentSpeechCompleter!.complete();
+      }
     }
   }
 
-  /// Stops current speech playback immediately.
+  /// Stops current speech playback immediately across both local and native audio players.
   Future<void> stop() async {
     _isPlaying = false;
-    await _flutterTts.stop();
+    try {
+      await _flutterTts.stop();
+    } catch (_) {}
+    try {
+      await _nativeMediaService.stopAudio();
+    } catch (_) {}
+
     if (_currentSpeechCompleter != null && !_currentSpeechCompleter!.isCompleted) {
       _currentSpeechCompleter!.complete();
     }
@@ -134,6 +224,6 @@ class TtsService {
   }
 
   void dispose() {
-    _flutterTts.stop();
+    stop();
   }
 }

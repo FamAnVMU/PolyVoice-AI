@@ -5,7 +5,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../services/llm/llm_service_factory.dart';
 import '../../../../services/storage/secure_storage_service.dart';
+import '../../../../services/storage/voice_storage_service.dart';
 import '../../../../services/voice/tts_service.dart';
+import '../../../voice/data/models/voice_model.dart';
 import '../../data/models/api_keys_model.dart';
 import '../../data/models/persona_model.dart';
 import '../../data/models/voice_config_model.dart';
@@ -17,13 +19,16 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
   final SharedPreferences prefs;
   final TtsService ttsService;
   final LlmServiceFactory llmFactory;
+  final VoiceStorageService voiceStorage;
 
   SettingsBloc({
     required this.secureStorage,
     required this.prefs,
     required this.ttsService,
     required this.llmFactory,
-  }) : super(SettingsState(
+    VoiceStorageService? customVoiceStorage,
+  })  : voiceStorage = customVoiceStorage ?? VoiceStorageService(prefs),
+        super(SettingsState(
           activePersona: PersonaModel.defaultPresets.first,
         )) {
     on<LoadSettingsEvent>(_onLoadSettings);
@@ -34,6 +39,9 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
     on<DeleteCustomPersonaEvent>(_onDeleteCustomPersona);
     on<UpdateVoiceConfigEvent>(_onUpdateVoiceConfig);
     on<LoadAvailableVoicesEvent>(_onLoadAvailableVoices);
+    on<SaveCustomVoiceEvent>(_onSaveCustomVoice);
+    on<DeleteCustomVoiceEvent>(_onDeleteCustomVoice);
+    on<SelectVoiceModelEvent>(_onSelectVoiceModel);
     on<ToggleThemeModeEvent>(_onToggleThemeMode);
   }
 
@@ -105,7 +113,7 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
       orElse: () => personas.first,
     );
 
-    // Load Voice Config
+    // Load Voice Config & ElevenLabs key
     VoiceConfigModel voiceConfig = const VoiceConfigModel();
     final voiceConfigJson = prefs.getString(AppConstants.keyVoiceConfig);
     if (voiceConfigJson != null) {
@@ -114,6 +122,15 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
             jsonDecode(voiceConfigJson) as Map<String, dynamic>);
       } catch (_) {}
     }
+
+    try {
+      final elevenLabsKey = await secureStorage.getElevenLabsKey() ??
+          prefs.getString('polyvoice_backup_elevenlabs_key') ?? '';
+      voiceConfig = voiceConfig.copyWith(elevenLabsApiKey: elevenLabsKey);
+    } catch (_) {}
+
+    // Load Custom Voices from persistent storage
+    final customVoices = voiceStorage.loadCustomVoices();
 
     // Load Theme Mode
     final themeModeStr = prefs.getString(AppConstants.keyThemeMode);
@@ -130,6 +147,7 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
       activePersona: activePersona,
       voiceConfig: voiceConfig,
       availableVoices: voices,
+      customVoices: customVoices,
       themeMode: themeMode,
     ));
   }
@@ -282,6 +300,12 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
   ) async {
     await prefs.setString(
         AppConstants.keyVoiceConfig, jsonEncode(event.voiceConfig.toJson()));
+
+    if (event.voiceConfig.elevenLabsApiKey.isNotEmpty) {
+      await secureStorage.saveElevenLabsKey(event.voiceConfig.elevenLabsApiKey);
+      await prefs.setString('polyvoice_backup_elevenlabs_key', event.voiceConfig.elevenLabsApiKey);
+    }
+
     await ttsService.configureVoice(event.voiceConfig);
 
     emit(state.copyWith(voiceConfig: event.voiceConfig));
@@ -294,6 +318,38 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
     final voices = await ttsService.getAvailableVoices(
         filterLanguageCode: event.languageCode);
     emit(state.copyWith(availableVoices: voices));
+  }
+
+  Future<void> _onSaveCustomVoice(
+    SaveCustomVoiceEvent event,
+    Emitter<SettingsState> emit,
+  ) async {
+    await voiceStorage.saveCustomVoice(event.voice);
+    final updated = voiceStorage.loadCustomVoices();
+    emit(state.copyWith(customVoices: updated));
+  }
+
+  Future<void> _onDeleteCustomVoice(
+    DeleteCustomVoiceEvent event,
+    Emitter<SettingsState> emit,
+  ) async {
+    await voiceStorage.deleteCustomVoice(event.voiceId);
+    final updated = voiceStorage.loadCustomVoices();
+    var cfg = state.voiceConfig;
+    if (cfg.selectedVoiceId == event.voiceId) {
+      cfg = cfg.copyWith(selectedVoiceId: AppConstants.defaultVoiceId);
+      await prefs.setString(AppConstants.keyVoiceConfig, jsonEncode(cfg.toJson()));
+    }
+    emit(state.copyWith(customVoices: updated, voiceConfig: cfg));
+  }
+
+  Future<void> _onSelectVoiceModel(
+    SelectVoiceModelEvent event,
+    Emitter<SettingsState> emit,
+  ) async {
+    final updated = state.voiceConfig.copyWith(selectedVoiceId: event.voiceId);
+    await prefs.setString(AppConstants.keyVoiceConfig, jsonEncode(updated.toJson()));
+    emit(state.copyWith(voiceConfig: updated));
   }
 
   Future<void> _onToggleThemeMode(

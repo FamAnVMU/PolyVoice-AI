@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import '../../../voice/data/models/voice_model.dart';
 import '../../data/models/api_keys_model.dart';
 import '../../data/models/persona_model.dart';
 import '../../data/models/voice_config_model.dart';
@@ -75,6 +76,30 @@ class LoadAvailableVoicesEvent extends SettingsEvent {
 
   @override
   List<Object?> get props => [languageCode];
+}
+
+class SaveCustomVoiceEvent extends SettingsEvent {
+  final VoiceModel voice;
+  const SaveCustomVoiceEvent(this.voice);
+
+  @override
+  List<Object?> get props => [voice];
+}
+
+class DeleteCustomVoiceEvent extends SettingsEvent {
+  final String voiceId;
+  const DeleteCustomVoiceEvent(this.voiceId);
+
+  @override
+  List<Object?> get props => [voiceId];
+}
+
+class SelectVoiceModelEvent extends SettingsEvent {
+  final String voiceId;
+  const SelectVoiceModelEvent(this.voiceId);
+
+  @override
+  List<Object?> get props => [voiceId];
 }
 
 class ToggleThemeModeEvent extends SettingsEvent {}

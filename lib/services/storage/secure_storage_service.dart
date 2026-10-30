@@ -120,6 +120,33 @@ class SecureStorageService {
     return _memoryCache[AppConstants.keyOpenRouterBaseUrl];
   }
 
+  // ElevenLabs Key (Voice Cloning Engine)
+  Future<void> saveElevenLabsKey(String key) async {
+    final clean = key.trim();
+    _memoryCache[AppConstants.keyElevenLabsApiKey] = clean;
+    try {
+      await _storage.write(key: AppConstants.keyElevenLabsApiKey, value: clean);
+    } catch (_) {}
+  }
+
+  Future<String?> getElevenLabsKey() async {
+    try {
+      final val = await _storage.read(key: AppConstants.keyElevenLabsApiKey);
+      if (val != null && val.isNotEmpty) {
+        _memoryCache[AppConstants.keyElevenLabsApiKey] = val;
+        return val;
+      }
+    } catch (_) {}
+    return _memoryCache[AppConstants.keyElevenLabsApiKey];
+  }
+
+  Future<void> deleteElevenLabsKey() async {
+    _memoryCache.remove(AppConstants.keyElevenLabsApiKey);
+    try {
+      await _storage.delete(key: AppConstants.keyElevenLabsApiKey);
+    } catch (_) {}
+  }
+
   // Check if provider has active key
   Future<bool> hasKeyForProvider(String provider) async {
     switch (provider) {
