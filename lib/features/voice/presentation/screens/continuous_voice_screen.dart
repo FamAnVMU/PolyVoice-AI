@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -24,6 +25,12 @@ class _ContinuousVoiceScreenState extends State<ContinuousVoiceScreen> {
 
   late VoicePipelineCoordinator _coordinator;
 
+  StreamSubscription<PipelineStatus>? _statusSub;
+  StreamSubscription<String>? _transcriptSub;
+  StreamSubscription<String>? _aiTokenSub;
+  StreamSubscription<String>? _aiFinishSub;
+  StreamSubscription<String>? _errorSub;
+
   @override
   void initState() {
     super.initState();
@@ -38,37 +45,49 @@ class _ContinuousVoiceScreenState extends State<ContinuousVoiceScreen> {
   }
 
   void _bindPipelineListeners() {
-    _coordinator.onStatusChanged = (newStatus) {
+    _statusSub = _coordinator.onStatusChangedStream.listen((newStatus) {
       if (mounted) {
         setState(() {
           _status = newStatus;
         });
       }
-    };
+    });
 
-    _coordinator.onUserTranscriptUpdated = (text) {
+    _transcriptSub = _coordinator.onUserTranscriptUpdatedStream.listen((text) {
       if (mounted) {
         setState(() {
           _userTranscript = text;
         });
       }
-    };
+    });
 
-    _coordinator.onAiTokenReceived = (streamed) {
+    _aiTokenSub = _coordinator.onAiTokenReceivedStream.listen((streamed) {
       if (mounted) {
         setState(() {
           _aiResponse = streamed;
         });
       }
-    };
+    });
 
-    _coordinator.onError = (err) {
+    _aiFinishSub = _coordinator.onAiResponseFinishedStream.listen((finishedText) {
+      if (mounted) {
+        setState(() {
+          _aiResponse = finishedText;
+        });
+      }
+    });
+
+    _errorSub = _coordinator.onErrorStream.listen((err) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(err), backgroundColor: AppColors.error),
+          SnackBar(
+            content: Text(err),
+            backgroundColor: AppColors.error,
+            duration: const Duration(seconds: 4),
+          ),
         );
       }
-    };
+    });
   }
 
   void _startListening() {
@@ -112,6 +131,11 @@ class _ContinuousVoiceScreenState extends State<ContinuousVoiceScreen> {
 
   @override
   void dispose() {
+    _statusSub?.cancel();
+    _transcriptSub?.cancel();
+    _aiTokenSub?.cancel();
+    _aiFinishSub?.cancel();
+    _errorSub?.cancel();
     _coordinator.interrupt();
     super.dispose();
   }

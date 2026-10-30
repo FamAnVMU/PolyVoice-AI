@@ -12,13 +12,26 @@ import '../../core/errors/failures.dart';
 class SttService {
   final stt.SpeechToText _speechToText = stt.SpeechToText();
   final AudioRecorder _audioRecorder = AudioRecorder();
-  final Dio _dio = Dio();
+  final Dio _dio;
 
   bool _isNativeInitialized = false;
   bool _isListening = false;
   String? _currentRecordingPath;
+  String _activeMode = AppConstants.sttModeOnDevice;
+  String _lastRecognizedWords = '';
 
   bool get isListening => _isListening;
+  String get activeMode => _activeMode;
+
+  SttService({Dio? dio})
+      : _dio = dio ??
+            Dio(
+              BaseOptions(
+                connectTimeout: const Duration(seconds: 15),
+                sendTimeout: const Duration(seconds: 25),
+                receiveTimeout: const Duration(seconds: 25),
+              ),
+            );
 
   /// Request microphone and speech recognition permissions.
   Future<bool> checkAndRequestPermissions() async {
@@ -27,17 +40,25 @@ class SttService {
       return false;
     }
 
+    if (Platform.isAndroid) {
+      // On Android, RECORD_AUDIO (microphone) is the necessary runtime permission.
+      return micStatus.isGranted;
+    }
+
     final speechStatus = await Permission.speech.request();
     return speechStatus.isGranted || speechStatus.isLimited;
   }
 
   /// Initialize native on-device speech recognizer.
-  Future<bool> initializeNativeStt() async {
+  Future<bool> initializeNativeStt({Function(String error)? onError}) async {
     if (_isNativeInitialized) return true;
 
     try {
       _isNativeInitialized = await _speechToText.initialize(
-        onError: (val) => _isListening = false,
+        onError: (val) {
+          _isListening = false;
+          onError?.call(val.errorMsg);
+        },
         onStatus: (val) {
           if (val == 'done' || val == 'notListening') {
             _isListening = false;
@@ -45,7 +66,8 @@ class SttService {
         },
       );
       return _isNativeInitialized;
-    } catch (_) {
+    } catch (e) {
+      onError?.call(e.toString());
       return false;
     }
   }
@@ -55,52 +77,75 @@ class SttService {
     required String mode,
     required String languageCode,
     required Function(String text, bool isFinal) onResult,
+    Function(String error)? onError,
     String? groqApiKey,
   }) async {
     final hasPermission = await checkAndRequestPermissions();
     if (!hasPermission) {
-      throw const PermissionFailure('Microphone or Speech permission was denied.');
+      throw const PermissionFailure('Microphone permission was denied. Please grant microphone access in device settings.');
     }
 
+    _lastRecognizedWords = '';
     _isListening = true;
+    _activeMode = mode;
 
-    if (mode == AppConstants.sttModeOnDevice) {
-      final initialized = await initializeNativeStt();
+    if (_activeMode == AppConstants.sttModeOnDevice) {
+      final initialized = await initializeNativeStt(onError: onError);
       if (!initialized) {
+        // Fallback to Groq Whisper if on-device STT is unavailable on this device
+        if (groqApiKey != null && groqApiKey.trim().isNotEmpty) {
+          _activeMode = AppConstants.sttModeGroqWhisper;
+          await _startWhisperRecording();
+          return;
+        }
         _isListening = false;
-        throw const SttFailure('Failed to initialize on-device speech engine.');
+        throw const SttFailure('On-device speech engine could not be initialized. Please configure Groq Whisper mode in Settings.');
       }
 
-      await _speechToText.listen(
-        onResult: (result) {
-          onResult(result.recognizedWords, result.finalResult);
-          if (result.finalResult) {
-            _isListening = false;
-          }
-        },
-        localeId: languageCode,
-        listenMode: stt.ListenMode.confirmation,
-        cancelOnError: true,
-        partialResults: true,
-      );
+      try {
+        await _speechToText.listen(
+          onResult: (result) {
+            _lastRecognizedWords = result.recognizedWords;
+            onResult(result.recognizedWords, result.finalResult);
+            if (result.finalResult) {
+              _isListening = false;
+            }
+          },
+          localeId: languageCode,
+          listenMode: stt.ListenMode.confirmation,
+          cancelOnError: false,
+          partialResults: true,
+        );
+      } catch (e) {
+        if (groqApiKey != null && groqApiKey.trim().isNotEmpty) {
+          _activeMode = AppConstants.sttModeGroqWhisper;
+          await _startWhisperRecording();
+          return;
+        }
+        _isListening = false;
+        throw SttFailure('On-device speech listening failed: $e');
+      }
     } else {
       // Mode B: Groq Whisper API recording
-      if (groqApiKey == null || groqApiKey.isEmpty) {
+      if (groqApiKey == null || groqApiKey.trim().isEmpty) {
         _isListening = false;
-        throw const ApiKeyFailure('Groq API Key is required for Groq Whisper Mode.');
+        throw const ApiKeyFailure('Groq Cloud API Key is required for Groq Whisper Mode. Please set it in Settings.');
       }
-
-      final tempDir = await getTemporaryDirectory();
-      _currentRecordingPath = '${tempDir.path}/polyvoice_stt_${DateTime.now().millisecondsSinceEpoch}.m4a';
-
-      final config = const RecordConfig(
-        encoder: AudioEncoder.aacLc,
-        bitRate: 128000,
-        sampleRate: 44100,
-      );
-
-      await _audioRecorder.start(config, path: _currentRecordingPath!);
+      await _startWhisperRecording();
     }
+  }
+
+  Future<void> _startWhisperRecording() async {
+    final tempDir = await getTemporaryDirectory();
+    _currentRecordingPath = '${tempDir.path}/polyvoice_stt_${DateTime.now().millisecondsSinceEpoch}.m4a';
+
+    final config = const RecordConfig(
+      encoder: AudioEncoder.aacLc,
+      bitRate: 128000,
+      sampleRate: 44100,
+    );
+
+    await _audioRecorder.start(config, path: _currentRecordingPath!);
   }
 
   /// Stop listening and, if using Groq Whisper, transcribe recorded audio.
@@ -112,24 +157,35 @@ class SttService {
     if (!_isListening) return null;
     _isListening = false;
 
-    if (mode == AppConstants.sttModeOnDevice) {
-      await _speechToText.stop();
-      return null;
+    if (_activeMode == AppConstants.sttModeOnDevice) {
+      try {
+        await _speechToText.stop();
+      } catch (_) {}
+      final recognized = _lastRecognizedWords.trim();
+      _lastRecognizedWords = '';
+      return recognized.isNotEmpty ? recognized : null;
     } else {
       // Mode B: Stop recording and send audio to Groq Whisper API
       final path = await _audioRecorder.stop();
       if (path == null) return null;
 
       final file = File(path);
-      if (!await file.exists()) return null;
+      if (!await file.exists() || await file.length() == 0) {
+        return null;
+      }
 
-      if (groqApiKey == null || groqApiKey.isEmpty) {
+      final cleanGroqKey = (groqApiKey ?? '').trim();
+      if (cleanGroqKey.isEmpty) {
         throw const ApiKeyFailure('Groq API Key is missing for Whisper transcription.');
       }
 
       try {
         final formData = FormData.fromMap({
-          'file': await MultipartFile.fromFile(path, filename: 'audio.m4a'),
+          'file': await MultipartFile.fromFile(
+            path,
+            filename: 'audio.m4a',
+            contentType: DioMediaType('audio', 'm4a'),
+          ),
           'model': 'whisper-large-v3',
           'response_format': 'json',
           if (languageCode != null && languageCode.length >= 2)
@@ -141,8 +197,10 @@ class SttService {
           data: formData,
           options: Options(
             headers: {
-              'Authorization': 'Bearer $groqApiKey',
+              'Authorization': 'Bearer $cleanGroqKey',
             },
+            sendTimeout: const Duration(seconds: 25),
+            receiveTimeout: const Duration(seconds: 25),
           ),
         );
 
@@ -152,7 +210,16 @@ class SttService {
         }
         return null;
       } on DioException catch (e) {
-        throw SttFailure('Groq Whisper transcription failed: ${e.message}');
+        String detail = e.message ?? e.toString();
+        if (e.response?.data is Map) {
+          detail = e.response?.data['error']?['message']?.toString() ?? detail;
+        }
+        if (e.type == DioExceptionType.connectionTimeout || e.type == DioExceptionType.receiveTimeout) {
+          throw const NetworkFailure('Timeout during voice transcription. Please check your connection.');
+        } else if (e.type == DioExceptionType.connectionError) {
+          throw const NetworkFailure('Cannot connect to Groq Whisper servers. Please check your internet connection.');
+        }
+        throw SttFailure('Groq Whisper transcription failed: $detail');
       } finally {
         try {
           if (await file.exists()) {
@@ -166,6 +233,7 @@ class SttService {
   /// Cancels listening immediately.
   Future<void> cancel() async {
     _isListening = false;
+    _lastRecognizedWords = '';
     try {
       await _speechToText.cancel();
     } catch (_) {}
@@ -181,6 +249,7 @@ class SttService {
   }
 
   void dispose() {
+    cancel();
     _speechToText.stop();
     _audioRecorder.dispose();
   }

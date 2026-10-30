@@ -69,10 +69,19 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget build(BuildContext context) {
     return BlocListener<ChatBloc, ChatState>(
       listenWhen: (prev, curr) {
-        // Trigger auto-scroll on new message or streaming chunk if not locked
-        return curr.messages.isNotEmpty && _isNearBottom;
+        return (curr.messages.isNotEmpty && _isNearBottom) ||
+            (curr.errorMessage != null && prev.errorMessage != curr.errorMessage);
       },
       listener: (context, state) {
+        if (state.errorMessage != null && state.errorMessage!.isNotEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(state.errorMessage!),
+              backgroundColor: AppColors.error,
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        }
         WidgetsBinding.instance.addPostFrameCallback((_) {
           _scrollToBottom(animated: false);
         });

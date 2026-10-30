@@ -10,7 +10,15 @@ import 'llm_provider.dart';
 class GeminiService implements LlmProvider {
   final Dio _dio;
 
-  GeminiService({Dio? dio}) : _dio = dio ?? Dio();
+  GeminiService({Dio? dio})
+      : _dio = dio ??
+            Dio(
+              BaseOptions(
+                connectTimeout: const Duration(seconds: 15),
+                sendTimeout: const Duration(seconds: 15),
+                receiveTimeout: const Duration(seconds: 35),
+              ),
+            );
 
   @override
   String get providerName => AppConstants.providerGemini;
@@ -23,31 +31,86 @@ class GeminiService implements LlmProvider {
     String? model,
     String? customBaseUrl,
   }) async* {
-    if (apiKey.isEmpty) {
+    final cleanKey = apiKey.trim();
+    if (cleanKey.isEmpty) {
       throw const ApiKeyFailure('Google Gemini API Key is missing. Please set it in Settings.');
     }
 
-    final targetModel = model ?? AppConstants.defaultGeminiModel;
-    final url = ApiEndpoints.geminiStream(targetModel, apiKey);
+    String targetModel = (model == null || model.trim().isEmpty)
+        ? AppConstants.defaultGeminiModel
+        : model.trim();
+    if (targetModel.startsWith('models/')) {
+      targetModel = targetModel.substring(7);
+    }
 
-    // Format Gemini history payload
+    final url = ApiEndpoints.geminiStream(targetModel, cleanKey);
+
+    // Format & sanitize Gemini history payload with strict turn alternation:
+    // Gemini requires strict (user -> model -> user -> ...) alternation, starting and ending with user.
     final List<Map<String, dynamic>> contents = [];
+    String? currentRole;
+    final List<String> currentParts = [];
+
+    void flushTurn() {
+      if (currentRole != null && currentParts.isNotEmpty) {
+        final combinedText = currentParts.join('\n\n').trim();
+        if (combinedText.isNotEmpty) {
+          contents.add({
+            'role': currentRole == 'user' ? 'user' : 'model',
+            'parts': [
+              {'text': combinedText}
+            ],
+          });
+        }
+      }
+      currentRole = null;
+      currentParts.clear();
+    }
+
     for (final msg in history) {
-      if (msg.content.trim().isEmpty) continue;
+      final text = msg.content.trim();
+      if (text.isEmpty || msg.isError || msg.isStreaming) continue;
+      final role = msg.isUser ? 'user' : 'model';
+
+      if (currentRole == role) {
+        currentParts.add(text);
+      } else {
+        flushTurn();
+        currentRole = role;
+        currentParts.add(text);
+      }
+    }
+    flushTurn();
+
+    // Ensure Gemini contents start with a 'user' turn
+    while (contents.isNotEmpty && contents.first['role'] != 'user') {
+      contents.removeAt(0);
+    }
+
+    // Ensure contents are not empty and end with 'user'
+    if (contents.isEmpty) {
       contents.add({
-        'role': msg.isUser ? 'user' : 'model',
+        'role': 'user',
         'parts': [
-          {'text': msg.content}
+          {'text': 'Hello'}
+        ],
+      });
+    } else if (contents.last['role'] != 'user') {
+      contents.add({
+        'role': 'user',
+        'parts': [
+          {'text': 'Please continue.'}
         ],
       });
     }
 
     final Map<String, dynamic> body = {
-      'system_instruction': {
-        'parts': [
-          {'text': systemPrompt}
-        ],
-      },
+      if (systemPrompt.trim().isNotEmpty)
+        'systemInstruction': {
+          'parts': [
+            {'text': systemPrompt.trim()}
+          ],
+        },
       'contents': contents,
       'generationConfig': {
         'temperature': 0.7,
@@ -63,15 +126,35 @@ class GeminiService implements LlmProvider {
         options: Options(
           responseType: ResponseType.stream,
           headers: {'Content-Type': 'application/json'},
+          sendTimeout: const Duration(seconds: 15),
+          receiveTimeout: const Duration(seconds: 35),
         ),
       );
     } on DioException catch (e) {
-      if (e.response?.statusCode == 400 || e.response?.statusCode == 403) {
-        throw ApiKeyFailure('Invalid Gemini API Key or restricted permissions: ${e.message}');
-      } else if (e.response?.statusCode == 429) {
-        throw const RateLimitFailure('Gemini API rate limit reached. Please wait a moment.');
+      final errorDetail = await _extractDioErrorDetail(e);
+      final statusCode = e.response?.statusCode;
+
+      if (statusCode == 400 || statusCode == 403) {
+        if (errorDetail.toLowerCase().contains('api key') ||
+            errorDetail.toLowerCase().contains('unauthorized') ||
+            statusCode == 403) {
+          throw ApiKeyFailure('Invalid or unauthorized Gemini API Key: $errorDetail', statusCode: statusCode);
+        }
+        throw ApiKeyFailure('Gemini Bad Request ($statusCode): $errorDetail', statusCode: statusCode);
+      } else if (statusCode == 429) {
+        throw RateLimitFailure('Gemini API rate limit reached: $errorDetail', statusCode: statusCode);
+      } else if (statusCode == 404) {
+        throw NetworkFailure('Model "$targetModel" not found (404). Please verify model name: $errorDetail', statusCode: statusCode);
+      } else if (e.type == DioExceptionType.connectionTimeout ||
+                 e.type == DioExceptionType.sendTimeout ||
+                 e.type == DioExceptionType.receiveTimeout) {
+        throw const NetworkFailure('Connection timed out while connecting to Gemini. Please check your network.');
+      } else if (e.type == DioExceptionType.connectionError) {
+        throw const NetworkFailure('Cannot connect to Gemini servers. Please check your internet connection.');
       }
-      throw NetworkFailure('Network error connecting to Gemini: ${e.message}');
+      throw NetworkFailure('Network error connecting to Gemini: $errorDetail', statusCode: statusCode);
+    } catch (e) {
+      throw NetworkFailure('Unexpected error connecting to Gemini: $e');
     }
 
     final stream = response.data?.stream;
@@ -85,6 +168,7 @@ class GeminiService implements LlmProvider {
         .transform(utf8.decoder)
         .transform(const LineSplitter());
 
+    bool receivedAnyToken = false;
     await for (final line in lineStream) {
       final trimmed = line.trim();
       if (trimmed.isEmpty) continue;
@@ -104,6 +188,7 @@ class GeminiService implements LlmProvider {
               final firstPart = parts.first as Map<String, dynamic>;
               final String? text = firstPart['text'] as String?;
               if (text != null && text.isNotEmpty) {
+                receivedAnyToken = true;
                 yield text;
               }
             }
@@ -112,6 +197,11 @@ class GeminiService implements LlmProvider {
           // Skip malformed SSE chunks
         }
       }
+    }
+
+    if (!receivedAnyToken) {
+      // Yield at least a space if Gemini returned empty candidates
+      yield '';
     }
   }
 
@@ -123,7 +213,7 @@ class GeminiService implements LlmProvider {
   }) async {
     try {
       final response = await _dio.get(
-        ApiEndpoints.geminiPing(apiKey),
+        ApiEndpoints.geminiPing(apiKey.trim()),
         options: Options(
           sendTimeout: const Duration(seconds: 8),
           receiveTimeout: const Duration(seconds: 8),
@@ -138,5 +228,30 @@ class GeminiService implements LlmProvider {
     } catch (_) {
       return false;
     }
+  }
+
+  Future<String> _extractDioErrorDetail(DioException e) async {
+    if (e.response?.data is ResponseBody) {
+      try {
+        final responseBody = e.response!.data as ResponseBody;
+        final bytes = await responseBody.stream.reduce((a, b) => [...a, ...b]);
+        final text = utf8.decode(bytes);
+        if (text.isNotEmpty) {
+          try {
+            final decoded = jsonDecode(text);
+            if (decoded is Map<String, dynamic>) {
+              if (decoded['error'] is Map) {
+                return decoded['error']['message']?.toString() ?? text;
+              } else if (decoded['error'] is String) {
+                return decoded['error'];
+              }
+            }
+          } catch (_) {
+            return text;
+          }
+        }
+      } catch (_) {}
+    }
+    return e.message ?? e.toString();
   }
 }

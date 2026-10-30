@@ -18,8 +18,23 @@ class VoicePipelineCoordinator {
 
   PipelineStatus _status = PipelineStatus.idle;
   StreamSubscription<String>? _llmStreamSubscription;
+  Timer? _streamTimeoutTimer;
 
-  // Status callbacks
+  // Broadcast stream controllers to support multiple concurrent listeners (ChatBloc, ContinuousVoiceScreen, etc.)
+  final StreamController<PipelineStatus> _statusController = StreamController<PipelineStatus>.broadcast();
+  final StreamController<String> _userTranscriptController = StreamController<String>.broadcast();
+  final StreamController<String> _aiTokenController = StreamController<String>.broadcast();
+  final StreamController<String> _aiResponseFinishedController = StreamController<String>.broadcast();
+  final StreamController<String> _errorController = StreamController<String>.broadcast();
+
+  // Streams
+  Stream<PipelineStatus> get onStatusChangedStream => _statusController.stream;
+  Stream<String> get onUserTranscriptUpdatedStream => _userTranscriptController.stream;
+  Stream<String> get onAiTokenReceivedStream => _aiTokenController.stream;
+  Stream<String> get onAiResponseFinishedStream => _aiResponseFinishedController.stream;
+  Stream<String> get onErrorStream => _errorController.stream;
+
+  // Status callbacks (legacy / direct assignment support)
   Function(PipelineStatus status)? onStatusChanged;
   Function(String text)? onUserTranscriptUpdated;
   Function(String partialAiResponse)? onAiTokenReceived;
@@ -45,7 +60,38 @@ class VoicePipelineCoordinator {
 
   void _setStatus(PipelineStatus newStatus) {
     _status = newStatus;
+    if (!_statusController.isClosed) {
+      _statusController.add(_status);
+    }
     onStatusChanged?.call(_status);
+  }
+
+  void _notifyTranscript(String text) {
+    if (!_userTranscriptController.isClosed) {
+      _userTranscriptController.add(text);
+    }
+    onUserTranscriptUpdated?.call(text);
+  }
+
+  void _notifyAiToken(String text) {
+    if (!_aiTokenController.isClosed) {
+      _aiTokenController.add(text);
+    }
+    onAiTokenReceived?.call(text);
+  }
+
+  void _notifyAiFinished(String text) {
+    if (!_aiResponseFinishedController.isClosed) {
+      _aiResponseFinishedController.add(text);
+    }
+    onAiResponseFinished?.call(text);
+  }
+
+  void _notifyError(String err) {
+    if (!_errorController.isClosed) {
+      _errorController.add(err);
+    }
+    onError?.call(err);
   }
 
   /// Starts listening to the user's speech via the configured STT engine.
@@ -64,12 +110,16 @@ class VoicePipelineCoordinator {
         languageCode: voiceConfig.languageCode,
         groqApiKey: apiKeys.groqKey,
         onResult: (transcript, isFinal) {
-          onUserTranscriptUpdated?.call(transcript);
+          _notifyTranscript(transcript);
+        },
+        onError: (err) {
+          _setStatus(PipelineStatus.error);
+          _notifyError(err);
         },
       );
     } catch (e) {
       _setStatus(PipelineStatus.error);
-      onError?.call(e.toString());
+      _notifyError(e.toString());
     }
   }
 
@@ -91,7 +141,7 @@ class VoicePipelineCoordinator {
       );
     } catch (e) {
       _setStatus(PipelineStatus.error);
-      onError?.call(e.toString());
+      _notifyError(e.toString());
       return;
     }
 
@@ -101,13 +151,14 @@ class VoicePipelineCoordinator {
       return;
     }
 
-    onUserTranscriptUpdated?.call(query);
+    _notifyTranscript(query);
     await processTextQuery(
       userQuery: query,
       conversationHistory: conversationHistory,
       apiKeys: apiKeys,
       persona: persona,
       voiceConfig: voiceConfig,
+      enableVoicePlayback: true,
     );
   }
 
@@ -133,20 +184,35 @@ class VoicePipelineCoordinator {
     String activeApiKey = '';
     switch (apiKeys.selectedProvider) {
       case 'groq':
-        activeApiKey = apiKeys.groqKey;
+        activeApiKey = apiKeys.groqKey.trim();
         break;
       case 'openrouter':
-        activeApiKey = apiKeys.openRouterKey;
+        activeApiKey = apiKeys.openRouterKey.trim();
         break;
       case 'gemini':
       default:
-        activeApiKey = apiKeys.geminiKey;
+        activeApiKey = apiKeys.geminiKey.trim();
         break;
     }
 
-    // Build context history
+    if (activeApiKey.isEmpty) {
+      _setStatus(PipelineStatus.error);
+      final providerName = apiKeys.selectedProvider.toUpperCase();
+      _notifyError('$providerName API Key is missing. Please set it in Settings & Keys.');
+      return;
+    }
+
+    // Build context history: clean up empty or in-flight placeholder messages
+    final cleanHistory = <ChatMessage>[];
+    for (final msg in conversationHistory) {
+      if (msg.isStreaming || msg.content.trim().isEmpty || msg.isError) {
+        continue;
+      }
+      cleanHistory.add(msg);
+    }
+
     final updatedHistory = [
-      ...conversationHistory,
+      ...cleanHistory,
       ChatMessage(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         content: userQuery,
@@ -164,10 +230,21 @@ class VoicePipelineCoordinator {
         customBaseUrl: apiKeys.openRouterBaseUrl,
       );
 
+      // Timeout watchdog: if no response from LLM within 40 seconds, abort
+      _streamTimeoutTimer?.cancel();
+      _streamTimeoutTimer = Timer(const Duration(seconds: 40), () {
+        if (_status == PipelineStatus.thinking) {
+          _llmStreamSubscription?.cancel();
+          _setStatus(PipelineStatus.error);
+          _notifyError('LLM request timed out. Please check your network and API key.');
+        }
+      });
+
       _llmStreamSubscription = tokenStream.listen(
         (token) {
+          _streamTimeoutTimer?.cancel();
           fullResponseBuffer.write(token);
-          onAiTokenReceived?.call(fullResponseBuffer.toString());
+          _notifyAiToken(fullResponseBuffer.toString());
 
           // Sentence-boundary chunking
           if (enableVoicePlayback) {
@@ -178,10 +255,12 @@ class VoicePipelineCoordinator {
           }
         },
         onError: (e) {
+          _streamTimeoutTimer?.cancel();
           _setStatus(PipelineStatus.error);
-          onError?.call(e.toString());
+          _notifyError(e.toString());
         },
         onDone: () {
+          _streamTimeoutTimer?.cancel();
           // Flush any final text remaining in the sentence chunker
           if (enableVoicePlayback) {
             final remainder = _sentenceChunker.flush();
@@ -190,7 +269,7 @@ class VoicePipelineCoordinator {
             }
           }
 
-          onAiResponseFinished?.call(fullResponseBuffer.toString());
+          _notifyAiFinished(fullResponseBuffer.toString());
 
           if (!enableVoicePlayback || !ttsQueueManager.isSpeaking) {
             _setStatus(PipelineStatus.idle);
@@ -199,13 +278,16 @@ class VoicePipelineCoordinator {
         cancelOnError: true,
       );
     } catch (e) {
+      _streamTimeoutTimer?.cancel();
       _setStatus(PipelineStatus.error);
-      onError?.call(e.toString());
+      _notifyError(e.toString());
     }
   }
 
   /// Cancels any active LLM stream and stops TTS audio playback immediately (barge-in).
   Future<void> interrupt() async {
+    _streamTimeoutTimer?.cancel();
+    _streamTimeoutTimer = null;
     await _llmStreamSubscription?.cancel();
     _llmStreamSubscription = null;
     _sentenceChunker.reset();
@@ -220,5 +302,10 @@ class VoicePipelineCoordinator {
     interrupt();
     sttService.dispose();
     ttsQueueManager.dispose();
+    _statusController.close();
+    _userTranscriptController.close();
+    _aiTokenController.close();
+    _aiResponseFinishedController.close();
+    _errorController.close();
   }
 }

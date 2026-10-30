@@ -15,6 +15,10 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   final SettingsBloc settingsBloc;
 
   ChatSession? _currentSession;
+  StreamSubscription<String>? _aiTokenSub;
+  StreamSubscription<String>? _aiFinishSub;
+  StreamSubscription<String>? _errorSub;
+  StreamSubscription<String>? _transcriptSub;
 
   ChatBloc({
     required this.coordinator,
@@ -34,25 +38,25 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     on<ClearChatEvent>(_onClearChat);
     on<SetAutoScrollLockEvent>(_onSetAutoScrollLockEvent);
 
-    _bindCoordinatorCallbacks();
+    _bindCoordinatorSubscriptions();
   }
 
-  void _bindCoordinatorCallbacks() {
-    coordinator.onAiTokenReceived = (accumulated) {
+  void _bindCoordinatorSubscriptions() {
+    _aiTokenSub = coordinator.onAiTokenReceivedStream.listen((accumulated) {
       add(ReceiveAiStreamTokenEvent(accumulated));
-    };
+    });
 
-    coordinator.onAiResponseFinished = (finalText) {
+    _aiFinishSub = coordinator.onAiResponseFinishedStream.listen((finalText) {
       add(FinishAiStreamEvent(finalText));
-    };
+    });
 
-    coordinator.onError = (err) {
+    _errorSub = coordinator.onErrorStream.listen((err) {
       add(FailAiStreamEvent(err));
-    };
+    });
 
-    coordinator.onUserTranscriptUpdated = (transcript) {
+    _transcriptSub = coordinator.onUserTranscriptUpdatedStream.listen((transcript) {
       add(UpdateSttTranscriptPreviewEvent(transcript));
-    };
+    });
   }
 
   Future<void> _onLoadChatHistory(
@@ -86,6 +90,9 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     final text = event.text.trim();
     if (text.isEmpty || state.isStreaming) return;
 
+    // Snapshot existing messages BEFORE adding user query & placeholder
+    final historySnapshot = List<ChatMessage>.from(state.messages);
+
     final userMsg = ChatMessage(
       id: const Uuid().v4(),
       content: text,
@@ -102,7 +109,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       personaName: settingsBloc.state.activePersona.name,
     );
 
-    final updated = [...state.messages, userMsg, aiPlaceholder];
+    final updated = [...historySnapshot, userMsg, aiPlaceholder];
     emit(state.copyWith(
       messages: updated,
       isStreaming: true,
@@ -110,14 +117,18 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     ));
 
     final settings = settingsBloc.state;
-    await coordinator.processTextQuery(
-      userQuery: text,
-      conversationHistory: state.messages,
-      apiKeys: settings.apiKeys,
-      persona: settings.activePersona,
-      voiceConfig: settings.voiceConfig,
-      enableVoicePlayback: event.enableVoicePlayback,
-    );
+    try {
+      await coordinator.processTextQuery(
+        userQuery: text,
+        conversationHistory: historySnapshot,
+        apiKeys: settings.apiKeys,
+        persona: settings.activePersona,
+        voiceConfig: settings.voiceConfig,
+        enableVoicePlayback: event.enableVoicePlayback,
+      );
+    } catch (e) {
+      add(FailAiStreamEvent(e.toString()));
+    }
   }
 
   void _onReceiveAiStreamToken(
@@ -140,14 +151,18 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     FinishAiStreamEvent event,
     Emitter<ChatState> emit,
   ) async {
-    if (state.messages.isEmpty) return;
+    if (state.messages.isEmpty) {
+      emit(state.copyWith(isStreaming: false));
+      return;
+    }
 
     final last = state.messages.last;
     final updatedList = List<ChatMessage>.from(state.messages);
 
     if (!last.isUser && last.isStreaming) {
+      final text = event.fullText.trim();
       updatedList[updatedList.length - 1] = last.copyWith(
-        content: event.fullText,
+        content: text.isEmpty ? '(Không nhận được phản hồi từ AI)' : text,
         isStreaming: false,
       );
     }
@@ -164,7 +179,10 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     FailAiStreamEvent event,
     Emitter<ChatState> emit,
   ) {
-    if (state.messages.isEmpty) return;
+    if (state.messages.isEmpty) {
+      emit(state.copyWith(isStreaming: false, errorMessage: event.errorMessage));
+      return;
+    }
 
     final last = state.messages.last;
     final updatedList = List<ChatMessage>.from(state.messages);
@@ -233,13 +251,17 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     emit(state.copyWith(isListeningStt: false));
 
     final settings = settingsBloc.state;
-    await coordinator.stopListeningAndProcess(
-      conversationHistory: state.messages,
-      apiKeys: settings.apiKeys,
-      persona: settings.activePersona,
-      voiceConfig: settings.voiceConfig,
-      fallbackTranscript: preview,
-    );
+    try {
+      await coordinator.stopListeningAndProcess(
+        conversationHistory: state.messages,
+        apiKeys: settings.apiKeys,
+        persona: settings.activePersona,
+        voiceConfig: settings.voiceConfig,
+        fallbackTranscript: preview,
+      );
+    } catch (e) {
+      add(FailAiStreamEvent(e.toString()));
+    }
   }
 
   void _onUpdateSttTranscriptPreview(
@@ -279,6 +301,10 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
 
   @override
   Future<void> close() {
+    _aiTokenSub?.cancel();
+    _aiFinishSub?.cancel();
+    _errorSub?.cancel();
+    _transcriptSub?.cancel();
     coordinator.dispose();
     return super.close();
   }

@@ -43,13 +43,32 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
   ) async {
     emit(state.copyWith(isLoading: true));
 
-    // Load API Keys from Secure Storage
-    final geminiKey = await secureStorage.getGeminiKey() ?? '';
-    final groqKey = await secureStorage.getGroqKey() ?? '';
-    final openRouterKey = await secureStorage.getOpenRouterKey() ?? '';
-    final openRouterBaseUrl = await secureStorage.getOpenRouterBaseUrl() ??
-        prefs.getString(AppConstants.keyOpenRouterBaseUrl) ??
-        'https://openrouter.ai/api/v1';
+    // Load API Keys from Secure Storage with SharedPreferences backup fallback
+    String geminiKey = '';
+    String groqKey = '';
+    String openRouterKey = '';
+    String openRouterBaseUrl = 'https://openrouter.ai/api/v1';
+
+    try {
+      geminiKey = await secureStorage.getGeminiKey() ?? '';
+      if (geminiKey.isEmpty) {
+        geminiKey = prefs.getString('polyvoice_backup_gemini_key') ?? '';
+      }
+
+      groqKey = await secureStorage.getGroqKey() ?? '';
+      if (groqKey.isEmpty) {
+        groqKey = prefs.getString('polyvoice_backup_groq_key') ?? '';
+      }
+
+      openRouterKey = await secureStorage.getOpenRouterKey() ?? '';
+      if (openRouterKey.isEmpty) {
+        openRouterKey = prefs.getString('polyvoice_backup_openrouter_key') ?? '';
+      }
+
+      openRouterBaseUrl = await secureStorage.getOpenRouterBaseUrl() ??
+          prefs.getString(AppConstants.keyOpenRouterBaseUrl) ??
+          'https://openrouter.ai/api/v1';
+    } catch (_) {}
 
     final selectedProvider =
         prefs.getString(AppConstants.keySelectedProvider) ?? AppConstants.providerGemini;
@@ -121,18 +140,22 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
   ) async {
     final keys = event.apiKeys;
 
-    // Save to Secure Storage
+    // Save to Secure Storage with persistent backup
     if (keys.geminiKey.isNotEmpty) {
       await secureStorage.saveGeminiKey(keys.geminiKey);
+      await prefs.setString('polyvoice_backup_gemini_key', keys.geminiKey);
     }
     if (keys.groqKey.isNotEmpty) {
       await secureStorage.saveGroqKey(keys.groqKey);
+      await prefs.setString('polyvoice_backup_groq_key', keys.groqKey);
     }
     if (keys.openRouterKey.isNotEmpty) {
       await secureStorage.saveOpenRouterKey(keys.openRouterKey);
+      await prefs.setString('polyvoice_backup_openrouter_key', keys.openRouterKey);
     }
     if (keys.openRouterBaseUrl.isNotEmpty) {
       await secureStorage.saveOpenRouterBaseUrl(keys.openRouterBaseUrl);
+      await prefs.setString(AppConstants.keyOpenRouterBaseUrl, keys.openRouterBaseUrl);
     }
 
     // Save Provider Preferences
