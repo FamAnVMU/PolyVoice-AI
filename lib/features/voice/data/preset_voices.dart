@@ -147,7 +147,6 @@ class PresetVoices {
       remoteVoiceId: 'Puck',
       edgeVoiceName: 'vi-VN-HoaiMyNeural',
       nativeSystemVoiceName: 'en-us-x-sfg-network',
-      nativeSystemVoiceName: 'en-us-x-sfg-network',
       createdAt: DateTime(2026, 1, 1),
       defaultSpeed: 0.90,
       defaultPitch: 1.00,
