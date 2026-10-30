@@ -1,9 +1,14 @@
 import 'dart:convert';
+import 'dart:isolate';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/constants/app_constants.dart';
+import '../../core/utils/backup_encryption_helper.dart';
 import '../../features/chat/data/models/chat_session.dart';
 import '../../features/profile/data/models/user_profile_model.dart';
 
+/// Local persistence service for Chat Sessions, User Profile, and Memory Notes.
+/// Employs Isolate.run() for zero-jank JSON parse/serialization and AES-256 for encrypted backups.
+/// Author: FamAn
 class ChatLocalStorageService {
   final SharedPreferences _prefs;
   static const String keyUserProfile = 'polyvoice_user_profile';
@@ -22,7 +27,6 @@ class ChatLocalStorageService {
   void _runMigrationIfNeeded() {
     final version = _prefs.getInt(keyDataVersion) ?? 1;
     if (version < currentSchemaVersion) {
-      // Migrate existing sessions into version 2 format (per-character persona schema)
       final existingSessions = loadSessions();
       saveSessions(existingSessions);
       _prefs.setInt(keyDataVersion, currentSchemaVersion);
@@ -50,7 +54,7 @@ class ChatLocalStorageService {
   }
 
   // -------------------------------------------------------------
-  // CHAT SESSIONS MANAGEMENT
+  // CHAT SESSIONS MANAGEMENT (ISOLATE OPTIMIZED)
   // -------------------------------------------------------------
   List<ChatSession> loadSessions() {
     final rawData = _prefs.getString(AppConstants.keyChatHistory);
@@ -67,9 +71,13 @@ class ChatLocalStorageService {
     }
   }
 
+  /// Offloads heavy serialization to a background Isolate to prevent UI jank.
   Future<void> saveSessions(List<ChatSession> sessions) async {
-    final list = sessions.map((s) => s.toJson()).toList();
-    await _prefs.setString(AppConstants.keyChatHistory, jsonEncode(list));
+    final serialized = await Isolate.run(() {
+      final list = sessions.map((s) => s.toJson()).toList();
+      return jsonEncode(list);
+    });
+    await _prefs.setString(AppConstants.keyChatHistory, serialized);
   }
 
   Future<void> saveSession(ChatSession session) async {
@@ -114,9 +122,9 @@ class ChatLocalStorageService {
   }
 
   // -------------------------------------------------------------
-  // BACKUP & RESTORE DATA
+  // BACKUP & RESTORE DATA (PLAINTEXT & AES-256 ENCRYPTED)
   // -------------------------------------------------------------
-  String exportBackupData() {
+  String exportBackupData({String? password}) {
     final sessions = loadSessions();
     final profile = loadUserProfile();
     final backupMap = {
@@ -126,12 +134,25 @@ class ChatLocalStorageService {
       'profile': profile.toJson(),
       'sessions': sessions.map((s) => s.toJson()).toList(),
     };
-    return const JsonEncoder.withIndent('  ').convert(backupMap);
+    final plaintext = const JsonEncoder.withIndent('  ').convert(backupMap);
+
+    if (password != null && password.trim().isNotEmpty) {
+      return BackupEncryptionHelper.encryptBackup(plaintext, password.trim());
+    }
+    return plaintext;
   }
 
-  Future<bool> importRestoreData(String jsonString) async {
+  Future<bool> importRestoreData(String backupPayload, {String? password}) async {
     try {
-      final map = jsonDecode(jsonString) as Map<String, dynamic>;
+      String jsonString = backupPayload.trim();
+      if (BackupEncryptionHelper.isEncryptedBackup(jsonString)) {
+        if (password == null || password.trim().isEmpty) {
+          return false;
+        }
+        jsonString = BackupEncryptionHelper.decryptBackup(jsonString, password.trim());
+      }
+
+      final map = await Isolate.run(() => jsonDecode(jsonString) as Map<String, dynamic>);
       if (map['profile'] is Map) {
         final profile = UserProfileModel.fromJson(map['profile'] as Map<String, dynamic>);
         await saveUserProfile(profile);

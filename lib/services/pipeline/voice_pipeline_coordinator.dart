@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:dio/dio.dart';
 import '../../core/network/network_logger.dart';
 import '../../core/utils/sentence_chunker.dart';
 import '../../core/utils/stream_response_sanitizer.dart';
@@ -12,6 +13,10 @@ import '../voice/tts_queue_manager.dart';
 
 enum PipelineStatus { idle, listening, thinking, speaking, error }
 
+/// Orchestrates real-time multimodal voice/chat loops:
+/// STT -> VAD Barge-in -> Context Windowing -> Multi-LLM with Auto-Fallback ->
+/// Sanitizer -> Sentence Chunker -> Low-Latency TTS Queue.
+/// Author: FamAn
 class VoicePipelineCoordinator {
   final SttService sttService;
   final TtsQueueManager ttsQueueManager;
@@ -21,13 +26,15 @@ class VoicePipelineCoordinator {
   PipelineStatus _status = PipelineStatus.idle;
   StreamSubscription<String>? _llmStreamSubscription;
   Timer? _streamTimeoutTimer;
+  CancelToken? _activeLlmCancelToken;
 
-  // Broadcast stream controllers to support multiple concurrent listeners (ChatBloc, ContinuousVoiceScreen, etc.)
+  // Broadcast stream controllers
   final StreamController<PipelineStatus> _statusController = StreamController<PipelineStatus>.broadcast();
   final StreamController<String> _userTranscriptController = StreamController<String>.broadcast();
   final StreamController<String> _aiTokenController = StreamController<String>.broadcast();
   final StreamController<String> _aiResponseFinishedController = StreamController<String>.broadcast();
   final StreamController<String> _errorController = StreamController<String>.broadcast();
+  final StreamController<String> _fallbackNotificationController = StreamController<String>.broadcast();
 
   // Streams
   Stream<PipelineStatus> get onStatusChangedStream => _statusController.stream;
@@ -35,13 +42,15 @@ class VoicePipelineCoordinator {
   Stream<String> get onAiTokenReceivedStream => _aiTokenController.stream;
   Stream<String> get onAiResponseFinishedStream => _aiResponseFinishedController.stream;
   Stream<String> get onErrorStream => _errorController.stream;
+  Stream<String> get onFallbackNotificationStream => _fallbackNotificationController.stream;
 
-  // Status callbacks (legacy / direct assignment support)
+  // Callbacks
   Function(PipelineStatus status)? onStatusChanged;
   Function(String text)? onUserTranscriptUpdated;
   Function(String partialAiResponse)? onAiTokenReceived;
   Function(String completeAiResponse)? onAiResponseFinished;
   Function(String error)? onError;
+  Function(String message)? onFallbackNotification;
 
   PipelineStatus get status => _status;
 
@@ -96,12 +105,19 @@ class VoicePipelineCoordinator {
     onError?.call(err);
   }
 
-  /// Starts listening to the user's speech via the configured STT engine.
+  void _notifyFallback(String msg) {
+    if (!_fallbackNotificationController.isClosed) {
+      _fallbackNotificationController.add(msg);
+    }
+    onFallbackNotification?.call(msg);
+  }
+
+  /// Starts listening via STT. Implements Hardware AEC and Barge-in trigger.
   Future<void> startListening({
     required ApiKeysModel apiKeys,
     required VoiceConfigModel voiceConfig,
   }) async {
-    // If TTS is currently speaking, barge-in / interrupt it!
+    // If TTS is currently speaking, barge-in / interrupt it immediately
     await interrupt();
 
     _setStatus(PipelineStatus.listening);
@@ -112,6 +128,10 @@ class VoicePipelineCoordinator {
         languageCode: voiceConfig.languageCode,
         groqApiKey: apiKeys.groqKey,
         onResult: (transcript, isFinal) {
+          // Barge-in: If user speaks during AI speaking/thinking, abort immediately (< 50ms)
+          if (_status == PipelineStatus.speaking || _status == PipelineStatus.thinking) {
+            interrupt();
+          }
           _notifyTranscript(transcript);
         },
         onError: (err) {
@@ -164,28 +184,49 @@ class VoicePipelineCoordinator {
     );
   }
 
-  /// Builds a reinforced system prompt ensuring strict language consistency,
-  /// in-depth responses with Markdown, and complete suppression of draft or thought tokens.
+  /// Builds a reinforced system prompt ensuring strict language consistency and in-depth responses.
   static String buildEffectiveSystemPrompt(String personaPrompt) {
     return '''$personaPrompt
 
 QUY TẮC PHẢN HỒI VÀ NGÔN NGỮ (BẮT BUỘC TUÂN THỦ CHẶT CHẼ):
 1. ĐỒNG NHẤT NGÔN NGỮ (LANGUAGE CONSISTENCY):
-   - Luôn trả lời đúng ngôn ngữ mà người dùng sử dụng. Nếu người dùng hỏi bằng tiếng Việt, bạn phải trả lời 100% bằng tiếng Việt chuẩn mực, tự nhiên, trôi chảy từ đầu đến cuối. Tuyệt đối KHÔNG tự ý chuyển sang tiếng Anh, KHÔNG chêm tiếng Anh bừa bãi hay trộn lẫn hai ngôn ngữ trong cùng một câu trả lời.
-   - Nếu người dùng hỏi bằng tiếng Anh, hãy trả lời hoàn toàn bằng tiếng Anh.
-   - Các thuật ngữ chuyên ngành công nghệ (như API, Flutter, Widget, Token, Database, Keystore...) được giữ nguyên dạng tiếng Anh phổ biến và kèm giải thích bằng tiếng Việt ở lần xuất hiện đầu nếu cần.
+   - Luôn trả lời đúng ngôn ngữ mà người dùng sử dụng. Nếu người dùng hỏi bằng tiếng Việt, bạn phải trả lời 100% bằng tiếng Việt chuẩn mực, tự nhiên. Tuyệt đối KHÔNG tự ý chuyển sang tiếng Anh.
 2. ĐỘ SÂU VÀ CHẤT LƯỢNG NỘI DUNG (DEPTH & COMPLETENESS):
-   - Với câu hỏi chào hỏi, xã giao ngắn: Trả lời tự nhiên, thân thiện, ngắn gọn vừa đủ.
-   - Với câu hỏi phân tích, học tập, kỹ thuật, hướng dẫn hoặc giải thích: Phải trả lời đầy đủ, chi tiết, có chiều sâu, lập luận chặt chẽ và không bỏ sót bất kỳ yêu cầu nào của người dùng.
-   - Sử dụng định dạng Markdown phong phú (tiêu đề #, danh sách gạch đầu dòng, các bước 1 2 3, khối mã code ```, bảng so sánh) để câu trả lời rành mạch, dễ đọc.
-   - Tuyệt đối không trả lời cộc lốc, không tự ý cắt cụt nội dung khi chưa giải thích xong.
+   - Với câu hỏi phân tích, học tập, kỹ thuật: Trả lời đầy đủ, chi tiết, có chiều sâu, trình bày khoa học với Markdown.
 3. CHỈ TRẢ VỀ CÂU TRẢ LỜI HOÀN CHỈNH (NO DRAFT / NO INTERNAL THOUGHTS):
-   - Tuyệt đối không xuất ra bản nháp, suy nghĩ nội bộ, hoặc các nhãn như "Draft response:", "Draft:", "Thinking:", "<think>". Chỉ cung cấp trực tiếp câu trả lời cuối cùng hoàn chỉnh nhất cho người dùng.
+   - Tuyệt đối không xuất ra bản nháp hoặc nhãn "Draft response:", "Draft:", "<think>". Chỉ cung cấp trực tiếp câu trả lời cuối cùng.
 ''';
   }
 
-  /// Core streaming pipeline:
-  /// Takes user input -> calls selected LLM provider -> chunks sentences -> feeds TTS queue immediately.
+  /// Resolves the API key corresponding to a given provider name.
+  String _getApiKeyForProvider(String providerName, ApiKeysModel apiKeys) {
+    switch (providerName) {
+      case 'groq':
+        return apiKeys.groqKey.trim();
+      case 'openrouter':
+        return apiKeys.openRouterKey.trim();
+      case 'gemini':
+      default:
+        return apiKeys.geminiKey.trim();
+    }
+  }
+
+  /// Builds an ordered list of fallback providers based on available keys.
+  List<String> _buildFallbackCandidates(String primaryProvider, ApiKeysModel apiKeys) {
+    final candidates = <String>[];
+    if (primaryProvider != 'groq' && apiKeys.groqKey.trim().isNotEmpty) {
+      candidates.add('groq');
+    }
+    if (primaryProvider != 'gemini' && apiKeys.geminiKey.trim().isNotEmpty) {
+      candidates.add('gemini');
+    }
+    if (primaryProvider != 'openrouter' && apiKeys.openRouterKey.trim().isNotEmpty) {
+      candidates.add('openrouter');
+    }
+    return candidates;
+  }
+
+  /// Core streaming pipeline with CancelToken, Auto-Fallback, and Sliding Window (N=20).
   Future<void> processTextQuery({
     required String userQuery,
     required List<ChatMessage> conversationHistory,
@@ -198,34 +239,12 @@ QUY TẮC PHẢN HỒI VÀ NGÔN NGỮ (BẮT BUỘC TUÂN THỦ CHẶT CHẼ):
 
     _setStatus(PipelineStatus.thinking);
     _sentenceChunker.reset();
+    _activeLlmCancelToken = CancelToken();
 
-    final provider = llmFactory.getProvider(apiKeys.selectedProvider);
     final StringBuffer fullResponseBuffer = StringBuffer();
     final sanitizer = StreamResponseSanitizer();
 
-    // Determine the API key for selected provider
-    String activeApiKey = '';
-    switch (apiKeys.selectedProvider) {
-      case 'groq':
-        activeApiKey = apiKeys.groqKey.trim();
-        break;
-      case 'openrouter':
-        activeApiKey = apiKeys.openRouterKey.trim();
-        break;
-      case 'gemini':
-      default:
-        activeApiKey = apiKeys.geminiKey.trim();
-        break;
-    }
-
-    if (activeApiKey.isEmpty) {
-      _setStatus(PipelineStatus.error);
-      final providerName = apiKeys.selectedProvider.toUpperCase();
-      _notifyError('$providerName API Key is missing. Please set it in Settings & Keys.');
-      return;
-    }
-
-    // Build context history: clean up empty or in-flight placeholder messages
+    // Context Window Optimization (TASK 3): Cap history to maximum N=20 messages
     final cleanHistory = <ChatMessage>[];
     for (final msg in conversationHistory) {
       if (msg.isStreaming || msg.content.trim().isEmpty || msg.isError) {
@@ -244,24 +263,90 @@ QUY TẮC PHẢN HỒI VÀ NGÔN NGỮ (BẮT BUỘC TUÂN THỦ CHẶT CHẼ):
       ),
     ];
 
-    try {
-      final effectiveSystemPrompt = buildEffectiveSystemPrompt(persona.systemPrompt);
+    // Apply 20-message sliding window
+    final slidingHistory = updatedHistory.length > 20
+        ? updatedHistory.sublist(updatedHistory.length - 20)
+        : updatedHistory;
 
+    final effectiveSystemPrompt = buildEffectiveSystemPrompt(persona.systemPrompt);
+
+    // Auto-Fallback Chain Setup (TASK 2)
+    final providerChain = [
+      apiKeys.selectedProvider,
+      ..._buildFallbackCandidates(apiKeys.selectedProvider, apiKeys),
+    ];
+
+    await _executeStreamWithFallback(
+      providerChain: providerChain,
+      chainIndex: 0,
+      history: slidingHistory,
+      systemPrompt: effectiveSystemPrompt,
+      apiKeys: apiKeys,
+      voiceConfig: voiceConfig,
+      enableVoicePlayback: enableVoicePlayback,
+      fullResponseBuffer: fullResponseBuffer,
+      sanitizer: sanitizer,
+    );
+  }
+
+  /// Recursively executes the stream through the fallback chain if a network/rate-limit error occurs.
+  Future<void> _executeStreamWithFallback({
+    required List<String> providerChain,
+    required int chainIndex,
+    required List<ChatMessage> history,
+    required String systemPrompt,
+    required ApiKeysModel apiKeys,
+    required VoiceConfigModel voiceConfig,
+    required bool enableVoicePlayback,
+    required StringBuffer fullResponseBuffer,
+    required StreamResponseSanitizer sanitizer,
+  }) async {
+    if (chainIndex >= providerChain.length) {
+      _setStatus(PipelineStatus.error);
+      _notifyError('Tất cả các nhà cung cấp AI đã thiết lập đều gặp lỗi hoặc không khả dụng.');
+      return;
+    }
+
+    final currentProviderName = providerChain[chainIndex];
+    final currentApiKey = _getApiKeyForProvider(currentProviderName, apiKeys);
+
+    if (currentApiKey.isEmpty) {
+      // Skip if key is empty, try next
+      return _executeStreamWithFallback(
+        providerChain: providerChain,
+        chainIndex: chainIndex + 1,
+        history: history,
+        systemPrompt: systemPrompt,
+        apiKeys: apiKeys,
+        voiceConfig: voiceConfig,
+        enableVoicePlayback: enableVoicePlayback,
+        fullResponseBuffer: fullResponseBuffer,
+        sanitizer: sanitizer,
+      );
+    }
+
+    if (chainIndex > 0) {
+      _notifyFallback('Đã tự động chuyển sang ${currentProviderName.toUpperCase()} do nhà cung cấp trước gặp sự cố kết nối/hạn mức.');
+    }
+
+    final provider = llmFactory.getProvider(currentProviderName);
+
+    try {
       final tokenStream = provider.streamChat(
-        history: updatedHistory,
-        systemPrompt: effectiveSystemPrompt,
-        apiKey: activeApiKey,
-        model: apiKeys.selectedModel,
+        history: history,
+        systemPrompt: systemPrompt,
+        apiKey: currentApiKey,
+        model: (currentProviderName == apiKeys.selectedProvider) ? apiKeys.selectedModel : null,
         customBaseUrl: apiKeys.openRouterBaseUrl,
+        cancelToken: _activeLlmCancelToken,
       );
 
-      // Timeout watchdog: if no response from LLM within 60 seconds, abort safely
       _streamTimeoutTimer?.cancel();
-      _streamTimeoutTimer = Timer(const Duration(seconds: 60), () {
+      _streamTimeoutTimer = Timer(const Duration(seconds: 45), () {
         if (_status == PipelineStatus.thinking) {
           _llmStreamSubscription?.cancel();
           _setStatus(PipelineStatus.error);
-          _notifyError('Yêu cầu AI đã hết thời gian chờ phản hồi (Timeout). Vui lòng thử lại.');
+          _notifyError('Yêu cầu AI đã hết thời gian chờ phản hồi (Timeout).');
         }
       });
 
@@ -273,7 +358,7 @@ QUY TẮC PHẢN HỒI VÀ NGÔN NGỮ (BẮT BUỘC TUÂN THỦ CHẶT CHẼ):
             fullResponseBuffer.write(token);
             _notifyAiToken(fullResponseBuffer.toString());
 
-            // Sentence-boundary chunking
+            // Real-time sentence chunking for TTS
             if (enableVoicePlayback) {
               final completedSentences = _sentenceChunker.processToken(token);
               for (final sentence in completedSentences) {
@@ -286,12 +371,34 @@ QUY TẮC PHẢN HỒI VÀ NGÔN NGỮ (BẮT BUỘC TUÂN THỦ CHẶT CHẼ):
             }
           }
         },
-        onError: (e) {
+        onError: (e) async {
           _streamTimeoutTimer?.cancel();
+
+          // If barge-in cancelled, do not fallback
+          if (e is DioException && e.type == DioExceptionType.cancel) {
+            return;
+          }
+
+          // If error happened before any tokens received, fallback to next provider in chain
+          if (fullResponseBuffer.isEmpty && chainIndex + 1 < providerChain.length) {
+            await _executeStreamWithFallback(
+              providerChain: providerChain,
+              chainIndex: chainIndex + 1,
+              history: history,
+              systemPrompt: systemPrompt,
+              apiKeys: apiKeys,
+              voiceConfig: voiceConfig,
+              enableVoicePlayback: enableVoicePlayback,
+              fullResponseBuffer: fullResponseBuffer,
+              sanitizer: sanitizer,
+            );
+            return;
+          }
+
           _setStatus(PipelineStatus.error);
           final cleanErr = NetworkLogger.formatUserMessage(
             e,
-            service: apiKeys.selectedProvider,
+            service: currentProviderName,
             model: apiKeys.selectedModel,
           );
           _notifyError(cleanErr);
@@ -315,7 +422,6 @@ QUY TẮC PHẢN HỒI VÀ NGÔN NGỮ (BẮT BUỘC TUÂN THỦ CHẶT CHẼ):
             }
           }
 
-          // Flush any final text remaining in the sentence chunker
           if (enableVoicePlayback) {
             final remainder = _sentenceChunker.flush();
             if (remainder != null && remainder.isNotEmpty) {
@@ -337,20 +443,36 @@ QUY TẮC PHẢN HỒI VÀ NGÔN NGỮ (BẮT BUỘC TUÂN THỦ CHẶT CHẼ):
       );
     } catch (e) {
       _streamTimeoutTimer?.cancel();
+      if (fullResponseBuffer.isEmpty && chainIndex + 1 < providerChain.length) {
+        await _executeStreamWithFallback(
+          providerChain: providerChain,
+          chainIndex: chainIndex + 1,
+          history: history,
+          systemPrompt: systemPrompt,
+          apiKeys: apiKeys,
+          voiceConfig: voiceConfig,
+          enableVoicePlayback: enableVoicePlayback,
+          fullResponseBuffer: fullResponseBuffer,
+          sanitizer: sanitizer,
+        );
+        return;
+      }
       _setStatus(PipelineStatus.error);
       final cleanErr = NetworkLogger.formatUserMessage(
         e,
-        service: apiKeys.selectedProvider,
+        service: currentProviderName,
         model: apiKeys.selectedModel,
       );
       _notifyError(cleanErr);
     }
   }
 
-  /// Cancels any active LLM stream and stops TTS audio playback immediately (barge-in).
+  /// Cancels any active LLM stream and stops TTS playback immediately (< 50ms Barge-in).
   Future<void> interrupt() async {
     _streamTimeoutTimer?.cancel();
     _streamTimeoutTimer = null;
+    _activeLlmCancelToken?.cancel('User barge-in interrupt');
+    _activeLlmCancelToken = null;
     await _llmStreamSubscription?.cancel();
     _llmStreamSubscription = null;
     _sentenceChunker.reset();
@@ -370,5 +492,6 @@ QUY TẮC PHẢN HỒI VÀ NGÔN NGỮ (BẮT BUỘC TUÂN THỦ CHẶT CHẼ):
     _aiTokenController.close();
     _aiResponseFinishedController.close();
     _errorController.close();
+    _fallbackNotificationController.close();
   }
 }

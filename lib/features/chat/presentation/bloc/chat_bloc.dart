@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:uuid/uuid.dart';
+import '../../../../services/llm/memory_extractor_service.dart';
 import '../../../../services/pipeline/voice_pipeline_coordinator.dart';
 import '../../../../services/storage/chat_local_storage_service.dart';
 import '../../../character/data/character_library.dart';
@@ -17,18 +18,21 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   final VoicePipelineCoordinator coordinator;
   final ChatLocalStorageService storageService;
   final SettingsBloc settingsBloc;
+  final MemoryExtractorService _memoryExtractor;
 
   ChatSession? _currentSession;
   StreamSubscription<String>? _aiTokenSub;
   StreamSubscription<String>? _aiFinishSub;
   StreamSubscription<String>? _errorSub;
   StreamSubscription<String>? _transcriptSub;
+  StreamSubscription<String>? _fallbackSub;
 
   ChatBloc({
     required this.coordinator,
     required this.storageService,
     required this.settingsBloc,
-  }) : super(const ChatState()) {
+  })  : _memoryExtractor = MemoryExtractorService(coordinator.llmFactory),
+        super(const ChatState()) {
     on<LoadChatHistoryEvent>(_onLoadChatHistory);
     on<SwitchSessionEvent>(_onSwitchSession);
     on<CreateSessionWithCharacterEvent>(_onCreateSessionWithCharacter);
@@ -52,6 +56,9 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     on<UpdateSttTranscriptPreviewEvent>(_onUpdateSttTranscriptPreview);
     on<ClearChatEvent>(_onClearChat);
     on<SetAutoScrollLockEvent>(_onSetAutoScrollLockEvent);
+    on<NotifyFallbackEvent>((event, emit) {
+      emit(state.copyWith(errorMessage: 'ℹ️ ${event.message}'));
+    });
 
     _bindCoordinatorSubscriptions();
   }
@@ -71,6 +78,10 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
 
     _transcriptSub = coordinator.onUserTranscriptUpdatedStream.listen((transcript) {
       add(UpdateSttTranscriptPreviewEvent(transcript));
+    });
+
+    _fallbackSub = coordinator.onFallbackNotificationStream.listen((msg) {
+      add(NotifyFallbackEvent(msg));
     });
   }
 
@@ -416,6 +427,36 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     ));
 
     await _saveCurrentMessages(updatedList);
+
+    // Auto-Memory Extraction (TASK 3): Trigger background extraction every 6 messages
+    if (updatedList.length >= 4 && updatedList.length % 6 == 0) {
+      _triggerBackgroundMemoryExtraction(updatedList);
+    }
+  }
+
+  void _triggerBackgroundMemoryExtraction(List<ChatMessage> messages) {
+    if (_currentSession == null) return;
+    final sessionId = _currentSession!.id;
+    final recent = messages.length > 6 ? messages.sublist(messages.length - 6) : messages;
+    final existing = List<String>.from(_currentSession!.memoryNotes);
+    final apiKeys = settingsBloc.state.apiKeys;
+
+    _memoryExtractor.extractNewMemories(
+      recentMessages: recent,
+      existingNotes: existing,
+      apiKeys: apiKeys,
+    ).then((newNotes) async {
+      if (newNotes.isNotEmpty && _currentSession?.id == sessionId) {
+        final combined = [..._currentSession!.memoryNotes, ...newNotes];
+        _currentSession = _currentSession!.copyWith(
+          memoryNotes: combined,
+          updatedAt: DateTime.now(),
+        );
+        await storageService.saveSession(_currentSession!);
+        final all = storageService.loadSessions();
+        add(SearchSessionsEvent(state.searchQuery));
+      }
+    });
   }
 
   void _onFailAiStream(
@@ -583,6 +624,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     _aiFinishSub?.cancel();
     _errorSub?.cancel();
     _transcriptSub?.cancel();
+    _fallbackSub?.cancel();
     coordinator.dispose();
     return super.close();
   }

@@ -148,7 +148,7 @@ class TtsService {
           apiKey: elevenLabsKey,
           stability: effectiveConfig.stability,
           style: effectiveConfig.style,
-        );
+        ).timeout(const Duration(milliseconds: 2500));
 
         await _nativeMediaService.playAudio(
           audioPath,
@@ -162,7 +162,7 @@ class TtsService {
         );
         return;
       } catch (e) {
-        // Fallback transparently to next tier
+        // Fallback transparently to next tier (Edge-TTS)
       }
     }
 
@@ -179,7 +179,7 @@ class TtsService {
           pitch: effectiveConfig.pitch,
           volume: effectiveConfig.volume,
           gender: activeVoice.gender,
-        );
+        ).timeout(const Duration(milliseconds: 2500));
 
         await _nativeMediaService.playAudio(
           audioPath,
@@ -193,7 +193,7 @@ class TtsService {
         );
         return;
       } catch (_) {
-        // Fallback transparently to Tier 3 Gemini Studio Neural Audio
+        // Fallback transparently to Tier 3 (Gemini / Native)
       }
     }
 

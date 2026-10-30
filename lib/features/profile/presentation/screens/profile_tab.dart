@@ -304,70 +304,116 @@ class _ProfileTabState extends State<ProfileTab> {
 
   void _showBackupExportDialog(BuildContext context) {
     final storage = context.read<ChatBloc>().storageService;
-    final jsonString = storage.exportBackupData();
+    final passwordController = TextEditingController();
+    String generatedJson = storage.exportBackupData();
+    bool isEncrypted = false;
 
     showDialog(
       context: context,
-      builder: (dlgContext) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.backup_rounded, color: AppColors.primary),
-            SizedBox(width: 8),
-            Text('Sao lưu dữ liệu JSON'),
+      builder: (dlgContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.lock_clock_rounded, color: AppColors.primary),
+              SizedBox(width: 8),
+              Text('Sao lưu dữ liệu'),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Dữ liệu gồm lịch sử trò chuyện, nhân vật và ghi nhớ. Bạn có thể đặt mật khẩu mã hóa AES-256 để bảo vệ tệp sao lưu:',
+                  style: TextStyle(fontSize: 12),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: passwordController,
+                  obscureText: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Mật khẩu mã hóa AES-256 (tùy chọn)',
+                    hintText: 'Để trống nếu không muốn mã hóa',
+                    prefixIcon: Icon(Icons.key, size: 18),
+                    border: OutlineInputBorder(),
+                  ),
+                  onChanged: (val) {
+                    setDialogState(() {
+                      isEncrypted = val.trim().isNotEmpty;
+                      generatedJson = storage.exportBackupData(password: val.trim());
+                    });
+                  },
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Icon(
+                      isEncrypted ? Icons.enhanced_encryption_rounded : Icons.description_outlined,
+                      size: 16,
+                      color: isEncrypted ? AppColors.success : Colors.grey,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      isEncrypted ? 'Đã kích hoạt mã hóa AES-256' : 'Dạng JSON mở (Không mã hóa)',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: isEncrypted ? AppColors.success : Colors.grey,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  height: 110,
+                  width: double.maxFinite,
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.06),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: SingleChildScrollView(
+                    child: Text(
+                      generatedJson,
+                      style: const TextStyle(fontSize: 10, fontFamily: 'monospace'),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dlgContext).pop(),
+              child: const Text('Đóng'),
+            ),
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+              icon: const Icon(Icons.copy_rounded, size: 16, color: Colors.white),
+              label: const Text('Sao chép dữ liệu', style: TextStyle(color: Colors.white)),
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: generatedJson));
+                Navigator.of(dlgContext).pop();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(isEncrypted
+                        ? 'Đã sao chép bản sao lưu mã hóa AES-256 vào bộ nhớ tạm!'
+                        : 'Đã sao chép dữ liệu sao lưu vào bộ nhớ tạm!'),
+                    backgroundColor: AppColors.success,
+                  ),
+                );
+              },
+            ),
           ],
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Dữ liệu gồm toàn bộ lịch sử trò chuyện, ghi nhớ nhân vật và hồ sơ cá nhân đã được trích xuất thành định dạng JSON tiêu chuẩn an toàn.',
-              style: TextStyle(fontSize: 12),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              height: 120,
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.06),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: SingleChildScrollView(
-                child: Text(
-                  jsonString,
-                  style: const TextStyle(fontSize: 10, fontFamily: 'monospace'),
-                ),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dlgContext).pop(),
-            child: const Text('Đóng'),
-          ),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
-            icon: const Icon(Icons.copy_rounded, size: 16, color: Colors.white),
-            label: const Text('Sao chép JSON', style: TextStyle(color: Colors.white)),
-            onPressed: () {
-              Clipboard.setData(ClipboardData(text: jsonString));
-              Navigator.of(dlgContext).pop();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Đã sao chép dữ liệu sao lưu vào bộ nhớ tạm!'),
-                  backgroundColor: AppColors.success,
-                ),
-              );
-            },
-          ),
-        ],
       ),
     );
   }
 
   void _showRestoreImportDialog(BuildContext context) {
     final controller = TextEditingController();
+    final passwordController = TextEditingController();
 
     showDialog(
       context: context,
@@ -379,25 +425,38 @@ class _ProfileTabState extends State<ProfileTab> {
             Text('Khôi phục dữ liệu'),
           ],
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Dán nội dung JSON đã sao lưu trước đó vào ô bên dưới để khôi phục lại toàn bộ dữ liệu ứng dụng:',
-              style: TextStyle(fontSize: 12),
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: controller,
-              maxLines: 5,
-              style: const TextStyle(fontSize: 11, fontFamily: 'monospace'),
-              decoration: const InputDecoration(
-                hintText: 'Dán mã JSON sao lưu tại đây...',
-                border: OutlineInputBorder(),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Dán nội dung JSON đã sao lưu vào ô bên dưới để khôi phục lại toàn bộ dữ liệu ứng dụng:',
+                style: TextStyle(fontSize: 12),
               ),
-            ),
-          ],
+              const SizedBox(height: 10),
+              TextField(
+                controller: controller,
+                maxLines: 4,
+                style: const TextStyle(fontSize: 11, fontFamily: 'monospace'),
+                decoration: const InputDecoration(
+                  hintText: 'Dán mã JSON sao lưu tại đây...',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: passwordController,
+                obscureText: true,
+                decoration: const InputDecoration(
+                  labelText: 'Mật khẩu giải mã (nếu tệp có mã hóa)',
+                  hintText: 'Nhập mật khẩu đã đặt khi xuất tệp',
+                  prefixIcon: Icon(Icons.lock_outline, size: 18),
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -411,8 +470,9 @@ class _ProfileTabState extends State<ProfileTab> {
             onPressed: () async {
               final text = controller.text.trim();
               if (text.isEmpty) return;
+              final password = passwordController.text.trim();
               final storage = context.read<ChatBloc>().storageService;
-              final ok = await storage.importRestoreData(text);
+              final ok = await storage.importRestoreData(text, password: password.isNotEmpty ? password : null);
               Navigator.of(dlgContext).pop();
 
               if (ok) {
@@ -427,12 +487,17 @@ class _ProfileTabState extends State<ProfileTab> {
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text('Lỗi: Định dạng JSON không hợp lệ hoặc dữ liệu bị hỏng.'),
+                    content: Text('Lỗi: Định dạng không hợp lệ, dữ liệu bị hỏng hoặc sai mật khẩu giải mã.'),
                     backgroundColor: AppColors.error,
                   ),
                 );
               }
             },
+          ),
+        ],
+      ),
+    );
+  }
           ),
         ],
       ),

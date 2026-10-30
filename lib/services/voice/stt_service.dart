@@ -152,7 +152,10 @@ class SttService {
     const config = RecordConfig(
       encoder: AudioEncoder.aacLc,
       bitRate: 128000,
-      sampleRate: 44100,
+      sampleRate: 16000, // Optimal for speech recognition & hardware AEC
+      echoCancel: true,
+      autoGain: true,
+      noiseSuppress: true,
     );
 
     await _audioRecorder.start(config, path: _currentRecordingPath!);

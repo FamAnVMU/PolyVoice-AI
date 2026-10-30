@@ -50,21 +50,46 @@ android {
 
     signingConfigs {
         release {
-            storeFile file('release-keystore.jks')
-            storePassword 'polyvoice123'
-            keyAlias 'polyvoice'
-            keyPassword 'polyvoice123'
+            def keystoreFile = file('release-keystore.jks')
+            def envKeystoreBase64 = System.getenv('KEYSTORE_BASE64')
+
+            if (envKeystoreBase64 != null && !envKeystoreBase64.isEmpty()) {
+                def decodedBytes = envKeystoreBase64.decodeBase64()
+                keystoreFile = file("${buildDir}/decoded-release-keystore.jks")
+                keystoreFile.parentFile.mkdirs()
+                keystoreFile.bytes = decodedBytes
+            }
+
+            def keyPropertiesFile = rootProject.file('key.properties')
+            def keyProperties = new Properties()
+            if (keyPropertiesFile.exists()) {
+                keyPropertiesFile.withReader('UTF-8') { reader ->
+                    keyProperties.load(reader)
+                }
+            }
+
+            def configuredPath = keyProperties.getProperty('storeFile')
+            if (configuredPath != null) {
+                keystoreFile = file(configuredPath)
+            }
+
+            if (keystoreFile.exists()) {
+                storeFile keystoreFile
+                storePassword System.getenv('KEYSTORE_PASSWORD') ?: keyProperties.getProperty('storePassword') ?: 'polyvoice123'
+                keyAlias System.getenv('KEY_ALIAS') ?: keyProperties.getProperty('keyAlias') ?: 'polyvoice'
+                keyPassword System.getenv('KEY_PASSWORD') ?: keyProperties.getProperty('keyPassword') ?: 'polyvoice123'
+            }
         }
     }
 
     buildTypes {
         release {
-            signingConfig signingConfigs.release
+            signingConfig signingConfigs.release.storeFile != null ? signingConfigs.release : signingConfigs.debug
             minifyEnabled false
             shrinkResources false
         }
         debug {
-            signingConfig signingConfigs.release
+            signingConfig signingConfigs.release.storeFile != null ? signingConfigs.release : signingConfigs.debug
         }
     }
 }

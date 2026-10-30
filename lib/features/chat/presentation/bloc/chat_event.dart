@@ -151,3 +151,11 @@ class SetAutoScrollLockEvent extends ChatEvent {
   @override
   List<Object?> get props => [isLocked];
 }
+
+class NotifyFallbackEvent extends ChatEvent {
+  final String message;
+  const NotifyFallbackEvent(this.message);
+
+  @override
+  List<Object?> get props => [message];
+}

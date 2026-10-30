@@ -1,4 +1,6 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -29,6 +31,9 @@ class _ApiKeysViewState extends State<ApiKeysView> {
   bool _obscureOpenRouter = true;
   bool _obscureElevenLabs = true;
 
+  String? _detectedClipboardKey;
+  String? _detectedClipboardProvider;
+
   @override
   void initState() {
     super.initState();
@@ -42,6 +47,70 @@ class _ApiKeysViewState extends State<ApiKeysView> {
     _modelController = TextEditingController(text: keys.selectedModel);
     _selectedProvider = keys.selectedProvider;
     _sttMode = keys.sttMode;
+
+    _checkClipboard();
+  }
+
+  Future<void> _checkClipboard() async {
+    try {
+      final data = await Clipboard.getData(Clipboard.kTextPlain);
+      final text = data?.text?.trim() ?? '';
+      if (text.isEmpty) return;
+
+      if (text.startsWith('AIza') && text != _geminiController.text.trim()) {
+        setState(() {
+          _detectedClipboardKey = text;
+          _detectedClipboardProvider = 'Google Gemini';
+        });
+      } else if (text.startsWith('gsk_') && text != _groqController.text.trim()) {
+        setState(() {
+          _detectedClipboardKey = text;
+          _detectedClipboardProvider = 'Groq Cloud';
+        });
+      } else if (text.startsWith('sk-or-') && text != _openRouterKeyController.text.trim()) {
+        setState(() {
+          _detectedClipboardKey = text;
+          _detectedClipboardProvider = 'OpenRouter';
+        });
+      }
+    } catch (_) {}
+  }
+
+  void _applyDetectedKey() {
+    if (_detectedClipboardKey == null) return;
+    setState(() {
+      if (_detectedClipboardProvider == 'Google Gemini') {
+        _geminiController.text = _detectedClipboardKey!;
+      } else if (_detectedClipboardProvider == 'Groq Cloud') {
+        _groqController.text = _detectedClipboardKey!;
+      } else if (_detectedClipboardProvider == 'OpenRouter') {
+        _openRouterKeyController.text = _detectedClipboardKey!;
+      }
+      _detectedClipboardKey = null;
+      _detectedClipboardProvider = null;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('✓ Đã dán API Key từ bộ nhớ tạm!'), backgroundColor: AppColors.success),
+    );
+  }
+
+  void _testSpecificKey(String provider, String key, {String? model, String? baseUrl}) {
+    if (key.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Vui lòng nhập API Key trước khi kiểm tra.'),
+          backgroundColor: AppColors.warning,
+        ),
+      );
+      return;
+    }
+
+    context.read<SettingsBloc>().add(TestApiKeyConnectionEvent(
+      provider: provider,
+      apiKey: key.trim(),
+      model: model,
+      baseUrl: baseUrl,
+    ));
   }
 
   @override
@@ -242,7 +311,51 @@ class _ApiKeysViewState extends State<ApiKeysView> {
                 'API KEYS',
                 style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1, color: Colors.grey),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
+
+              // Clipboard Auto-Detection Banner (TASK 5)
+              if (_detectedClipboardKey != null) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.primary.withOpacity(0.4)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.content_paste_go_rounded, color: AppColors.primaryLight, size: 22),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Phát hiện $_detectedClipboardProvider Key trong bộ nhớ tạm',
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                            ),
+                            Text(
+                              '${_detectedClipboardKey!.substring(0, min(14, _detectedClipboardKey!.length))}...',
+                              style: const TextStyle(fontSize: 11, color: Colors.grey),
+                            ),
+                          ],
+                        ),
+                      ),
+                      ElevatedButton(
+                        onPressed: _applyDetectedKey,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        child: const Text('Dán nhanh', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white)),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+              ],
 
               // Gemini Input
               TextField(
@@ -258,7 +371,15 @@ class _ApiKeysViewState extends State<ApiKeysView> {
                   ),
                 ),
               ),
-              const SizedBox(height: 14),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: () => _testSpecificKey('gemini', _geminiController.text, model: _modelController.text),
+                  icon: const Icon(Icons.wifi_tethering_rounded, size: 14),
+                  label: const Text('Kiểm tra kết nối Gemini', style: TextStyle(fontSize: 11)),
+                ),
+              ),
+              const SizedBox(height: 8),
 
               // Groq Input
               TextField(
@@ -274,7 +395,15 @@ class _ApiKeysViewState extends State<ApiKeysView> {
                   ),
                 ),
               ),
-              const SizedBox(height: 14),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: () => _testSpecificKey('groq', _groqController.text, model: _modelController.text),
+                  icon: const Icon(Icons.wifi_tethering_rounded, size: 14),
+                  label: const Text('Kiểm tra kết nối Groq', style: TextStyle(fontSize: 11)),
+                ),
+              ),
+              const SizedBox(height: 8),
 
               // OpenRouter Input
               TextField(
@@ -290,7 +419,15 @@ class _ApiKeysViewState extends State<ApiKeysView> {
                   ),
                 ),
               ),
-              const SizedBox(height: 14),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: () => _testSpecificKey('openrouter', _openRouterKeyController.text, model: _modelController.text, baseUrl: _openRouterUrlController.text),
+                  icon: const Icon(Icons.wifi_tethering_rounded, size: 14),
+                  label: const Text('Kiểm tra kết nối OpenRouter', style: TextStyle(fontSize: 11)),
+                ),
+              ),
+              const SizedBox(height: 8),
 
               TextField(
                 controller: _openRouterUrlController,

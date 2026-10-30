@@ -31,8 +31,23 @@ jobs:
       - name: Install Dependencies
         run: flutter pub get
 
+      - name: Decode Release Keystore (from GitHub Secrets if configured)
+        shell: bash
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "Decoding Keystore from secret KEYSTORE_BASE64..."
+            echo "$KEYSTORE_BASE64" | base64 --decode > android/app/release-keystore.jks
+          fi
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+
       - name: Build Release APK
         run: flutter build apk --release --android-skip-build-dependency-validation
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4

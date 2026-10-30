@@ -23,6 +23,7 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> {
   final ScrollController _scrollController = ScrollController();
   bool _isNearBottom = true;
+  int _visibleMessageCount = 25;
 
   @override
   void initState() {
@@ -42,6 +43,16 @@ class _ChatScreenState extends State<ChatScreen> {
         _isNearBottom = nearBottom;
       });
       context.read<ChatBloc>().add(SetAutoScrollLockEvent(!nearBottom));
+    }
+
+    // Lazy Loading Pagination (TASK 4): Load 25 earlier messages when scrolling near top
+    if (currentScroll <= 60 && !_isNearBottom) {
+      final total = context.read<ChatBloc>().state.messages.length;
+      if (_visibleMessageCount < total) {
+        setState(() {
+          _visibleMessageCount = (_visibleMessageCount + 25).clamp(25, total);
+        });
+      }
     }
   }
 
@@ -435,12 +446,41 @@ class _ChatScreenState extends State<ChatScreen> {
                         );
                       }
 
+                      final allMessages = chatState.messages;
+                      final startIndex = allMessages.length > _visibleMessageCount
+                          ? allMessages.length - _visibleMessageCount
+                          : 0;
+                      final displayMessages = allMessages.sublist(startIndex);
+                      final hasMore = startIndex > 0;
+
                       return ListView.builder(
                         controller: _scrollController,
                         padding: const EdgeInsets.only(top: 10, bottom: 20),
-                        itemCount: chatState.messages.length,
+                        itemCount: displayMessages.length + (hasMore ? 1 : 0),
                         itemBuilder: (context, index) {
-                          final msg = chatState.messages[index];
+                          if (hasMore && index == 0) {
+                            return Center(
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 8),
+                                child: ActionChip(
+                                  avatar: const Icon(Icons.history_rounded, size: 16),
+                                  label: Text(
+                                    'Tải thêm tin nhắn cũ ($startIndex còn lại)',
+                                    style: const TextStyle(fontSize: 11),
+                                  ),
+                                  onPressed: () {
+                                    setState(() {
+                                      _visibleMessageCount = (_visibleMessageCount + 25)
+                                          .clamp(25, allMessages.length);
+                                    });
+                                  },
+                                ),
+                              ),
+                            );
+                          }
+
+                          final actualMsgIndex = hasMore ? index - 1 : index;
+                          final msg = displayMessages[actualMsgIndex];
                           final isSpeakingThis = chatState.isSpeakingTts &&
                               chatState.activeSpeakingMessageId == msg.id;
 

@@ -32,6 +32,7 @@ class OpenRouterService implements LlmProvider {
     required String apiKey,
     String? model,
     String? customBaseUrl,
+    CancelToken? cancelToken,
   }) async* {
     final cleanKey = apiKey.trim();
     if (cleanKey.isEmpty) {
@@ -86,6 +87,7 @@ class OpenRouterService implements LlmProvider {
       response = await _dio.post<ResponseBody>(
         endpoint,
         data: body,
+        cancelToken: cancelToken,
         options: Options(
           responseType: ResponseType.stream,
           headers: {
@@ -106,6 +108,9 @@ class OpenRouterService implements LlmProvider {
         durationMs: stopwatch.elapsedMilliseconds,
       );
     } on DioException catch (e) {
+      if (e.type == DioExceptionType.cancel) {
+        return; // Barge-in cancellation
+      }
       final errorDetail = await _extractDioErrorDetail(e);
       final statusCode = e.response?.statusCode;
 
