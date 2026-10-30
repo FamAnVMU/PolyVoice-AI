@@ -48,11 +48,23 @@ android {
         versionName flutterVersionName
     }
 
+    signingConfigs {
+        release {
+            storeFile file('release-keystore.jks')
+            storePassword 'polyvoice123'
+            keyAlias 'polyvoice'
+            keyPassword 'polyvoice123'
+        }
+    }
+
     buildTypes {
         release {
-            signingConfig signingConfigs.debug
+            signingConfig signingConfigs.release
             minifyEnabled false
             shrinkResources false
+        }
+        debug {
+            signingConfig signingConfigs.release
         }
     }
 }

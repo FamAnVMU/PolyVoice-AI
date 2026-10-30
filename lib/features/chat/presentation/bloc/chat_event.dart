@@ -1,4 +1,6 @@
 import 'package:equatable/equatable.dart';
+import '../../character/data/models/ai_character_model.dart';
+import '../../profile/data/models/user_profile_model.dart';
 
 abstract class ChatEvent extends Equatable {
   const ChatEvent();
@@ -8,6 +10,80 @@ abstract class ChatEvent extends Equatable {
 }
 
 class LoadChatHistoryEvent extends ChatEvent {}
+
+class SwitchSessionEvent extends ChatEvent {
+  final String sessionId;
+  const SwitchSessionEvent(this.sessionId);
+
+  @override
+  List<Object?> get props => [sessionId];
+}
+
+class CreateSessionWithCharacterEvent extends ChatEvent {
+  final AICharacterModel character;
+  const CreateSessionWithCharacterEvent(this.character);
+
+  @override
+  List<Object?> get props => [character];
+}
+
+class DeleteSessionEvent extends ChatEvent {
+  final String sessionId;
+  const DeleteSessionEvent(this.sessionId);
+
+  @override
+  List<Object?> get props => [sessionId];
+}
+
+class TogglePinSessionEvent extends ChatEvent {
+  final String sessionId;
+  const TogglePinSessionEvent(this.sessionId);
+
+  @override
+  List<Object?> get props => [sessionId];
+}
+
+class ToggleArchiveSessionEvent extends ChatEvent {
+  final String sessionId;
+  const ToggleArchiveSessionEvent(this.sessionId);
+
+  @override
+  List<Object?> get props => [sessionId];
+}
+
+class UpdateUserProfileEvent extends ChatEvent {
+  final UserProfileModel profile;
+  const UpdateUserProfileEvent(this.profile);
+
+  @override
+  List<Object?> get props => [profile];
+}
+
+class AddMemoryNoteEvent extends ChatEvent {
+  final String note;
+  const AddMemoryNoteEvent(this.note);
+
+  @override
+  List<Object?> get props => [note];
+}
+
+class ClearMemoryNotesEvent extends ChatEvent {}
+
+class SearchSessionsEvent extends ChatEvent {
+  final String query;
+  const SearchSessionsEvent(this.query);
+
+  @override
+  List<Object?> get props => [query];
+}
+
+class FilterSessionsEvent extends ChatEvent {
+  final String filter; // 'all' | 'pinned' | 'archived'
+  const FilterSessionsEvent(this.filter);
+
+  @override
+  List<Object?> get props => [filter];
+}
 
 class SendTextMessageEvent extends ChatEvent {
   final String text;

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../settings/data/models/persona_model.dart';
 import '../../../settings/presentation/bloc/settings_bloc.dart';
 import '../../../settings/presentation/bloc/settings_state.dart';
 import '../../../settings/presentation/screens/settings_screen.dart';
@@ -33,7 +34,7 @@ class _ChatScreenState extends State<ChatScreen> {
     if (!_scrollController.hasClients) return;
     final maxScroll = _scrollController.position.maxScrollExtent;
     final currentScroll = _scrollController.offset;
-    final threshold = 80.0;
+    const threshold = 80.0;
     final nearBottom = (maxScroll - currentScroll) <= threshold;
 
     if (nearBottom != _isNearBottom) {
@@ -56,6 +57,181 @@ class _ChatScreenState extends State<ChatScreen> {
     } else {
       _scrollController.jumpTo(maxScroll);
     }
+  }
+
+  void _showSessionMemoryDialog(BuildContext context) {
+    final noteController = TextEditingController();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        final isDark = Theme.of(sheetContext).brightness == Brightness.dark;
+        final cardBg = isDark ? AppColors.darkSurface : AppColors.lightSurface;
+        final borderColor = isDark ? AppColors.darkCardBorder : AppColors.lightCardBorder;
+        final textPrimary = isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight;
+        final textSecondary = isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight;
+
+        return BlocBuilder<ChatBloc, ChatState>(
+          builder: (context, chatState) {
+            final active = chatState.activeSession;
+            final charName = active?.characterName ?? 'Nhân vật AI';
+            final charAvatar = active?.characterAvatar ?? '🤖';
+            final memoryNotes = active?.memoryNotes ?? const [];
+
+            return Container(
+              height: MediaQuery.of(sheetContext).size.height * 0.75,
+              decoration: BoxDecoration(
+                color: cardBg,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+                border: Border.all(color: borderColor),
+              ),
+              padding: EdgeInsets.only(
+                left: 20,
+                right: 20,
+                top: 14,
+                bottom: MediaQuery.of(sheetContext).viewInsets.bottom + 20,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.withOpacity(0.4),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: const BoxDecoration(
+                          gradient: LinearGradient(colors: [AppColors.primary, AppColors.accentCyan]),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Center(
+                          child: Text(charAvatar, style: const TextStyle(fontSize: 22)),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              charName,
+                              style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: textPrimary),
+                            ),
+                            Text(
+                              'Ký ức & Ghi nhớ độc lập cho cuộc trò chuyện này',
+                              style: TextStyle(fontSize: 11, color: textSecondary),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+
+                  // Add note input
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: noteController,
+                          decoration: InputDecoration(
+                            hintText: 'Thêm ghi nhớ (ví dụ: Tôi thích code Dart)...',
+                            hintStyle: TextStyle(fontSize: 12, color: textSecondary),
+                            filled: true,
+                            fillColor: isDark ? AppColors.darkCard : AppColors.lightCard,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: borderColor)),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        icon: const Icon(Icons.add_circle_rounded, color: AppColors.primary, size: 28),
+                        onPressed: () {
+                          final text = noteController.text.trim();
+                          if (text.isNotEmpty) {
+                            context.read<ChatBloc>().add(AddMemoryNoteEvent(text));
+                            noteController.clear();
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Các mục đã ghi nhớ (${memoryNotes.length}):',
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textPrimary),
+                      ),
+                      if (memoryNotes.isNotEmpty)
+                        TextButton(
+                          onPressed: () {
+                            context.read<ChatBloc>().add(ClearMemoryNotesEvent());
+                          },
+                          child: const Text('Xóa tất cả', style: TextStyle(color: AppColors.error, fontSize: 12)),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+
+                  Expanded(
+                    child: memoryNotes.isEmpty
+                        ? Center(
+                            child: Text(
+                              'Chưa có ghi nhớ nào cho cuộc trò chuyện này.\nHãy thêm ghi nhớ để nhân vật AI hiểu rõ hơn về bạn!',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(fontSize: 12, color: textSecondary),
+                            ),
+                          )
+                        : ListView.separated(
+                            itemCount: memoryNotes.length,
+                            separatorBuilder: (_, __) => const SizedBox(height: 6),
+                            itemBuilder: (context, index) {
+                              return Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: isDark ? AppColors.darkCard : AppColors.lightCard,
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: borderColor),
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.bookmark_rounded, size: 16, color: AppColors.primaryLight),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        memoryNotes[index],
+                                        style: TextStyle(fontSize: 12, color: textPrimary),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   @override
@@ -88,55 +264,79 @@ class _ChatScreenState extends State<ChatScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
-          titleSpacing: 0,
-          title: BlocBuilder<SettingsBloc, SettingsState>(
-            builder: (context, settingsState) {
-              final persona = settingsState.activePersona;
-              final provider = settingsState.apiKeys.selectedProvider.toUpperCase();
+          leading: Navigator.canPop(context)
+              ? IconButton(
+                  icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+                  onPressed: () => Navigator.of(context).pop(),
+                )
+              : null,
+          titleSpacing: Navigator.canPop(context) ? 0 : 16,
+          title: BlocBuilder<ChatBloc, ChatState>(
+            builder: (context, chatState) {
+              return BlocBuilder<SettingsBloc, SettingsState>(
+                builder: (context, settingsState) {
+                  final active = chatState.activeSession;
+                  final fallbackPersona = settingsState.activePersona;
+                  final charName = active?.characterName ?? fallbackPersona.name;
+                  final charAvatar = active?.characterAvatar ?? fallbackPersona.avatarEmoji;
+                  final provider = settingsState.apiKeys.selectedProvider.toUpperCase();
 
-              return Row(
-                children: [
-                  Container(
-                    width: 38,
-                    height: 38,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: const LinearGradient(
-                        colors: [AppColors.primary, AppColors.accentCyan],
-                      ),
-                    ),
-                    child: Center(
-                      child: Text(persona.avatarEmoji, style: const TextStyle(fontSize: 18)),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        persona.name,
-                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-                      ),
-                      Row(
-                        children: [
-                          Container(
-                            width: 6,
-                            height: 6,
-                            decoration: const BoxDecoration(
-                              color: AppColors.accentNeon,
-                              shape: BoxShape.circle,
+                  return GestureDetector(
+                    onTap: () => _showSessionMemoryDialog(context),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 38,
+                          height: 38,
+                          decoration: const BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: LinearGradient(
+                              colors: [AppColors.primary, AppColors.accentCyan],
                             ),
                           ),
-                          const SizedBox(width: 5),
-                          Text(
-                            '$provider BYOK • Client-Side',
-                            style: const TextStyle(fontSize: 11, color: Colors.grey),
+                          child: Center(
+                            child: Text(charAvatar, style: const TextStyle(fontSize: 18)),
                           ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ],
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                charName,
+                                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              Row(
+                                children: [
+                                  Container(
+                                    width: 6,
+                                    height: 6,
+                                    decoration: const BoxDecoration(
+                                      color: AppColors.accentNeon,
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 5),
+                                  Expanded(
+                                    child: Text(
+                                      '${active != null && active.memoryNotes.isNotEmpty ? '🧠 ${active.memoryNotes.length} ký ức • ' : ''}$provider BYOK',
+                                      style: const TextStyle(fontSize: 11, color: Colors.grey),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
               );
             },
           ),
@@ -145,8 +345,8 @@ class _ChatScreenState extends State<ChatScreen> {
             IconButton(
               icon: Container(
                 padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
                     colors: [AppColors.accentPink, AppColors.primary],
                   ),
                   shape: BoxShape.circle,
@@ -163,7 +363,9 @@ class _ChatScreenState extends State<ChatScreen> {
             PopupMenuButton<String>(
               icon: const Icon(Icons.more_vert),
               onSelected: (val) {
-                if (val == 'settings') {
+                if (val == 'memory') {
+                  _showSessionMemoryDialog(context);
+                } else if (val == 'settings') {
                   Navigator.of(context).push(
                     MaterialPageRoute(builder: (_) => const SettingsScreen()),
                   );
@@ -172,6 +374,16 @@ class _ChatScreenState extends State<ChatScreen> {
                 }
               },
               itemBuilder: (context) => [
+                const PopupMenuItem(
+                  value: 'memory',
+                  child: Row(
+                    children: [
+                      Icon(Icons.psychology_rounded, size: 18, color: AppColors.accentCyan),
+                      SizedBox(width: 10),
+                      Text('Ký ức cuộc trò chuyện'),
+                    ],
+                  ),
+                ),
                 const PopupMenuItem(
                   value: 'settings',
                   child: Row(
@@ -188,7 +400,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     children: [
                       Icon(Icons.delete_outline, size: 18, color: AppColors.error),
                       SizedBox(width: 10),
-                      Text('Clear Chat History', style: TextStyle(color: AppColors.error)),
+                      Text('Xóa tin nhắn trong cuộc này', style: TextStyle(color: AppColors.error)),
                     ],
                   ),
                 ),
@@ -205,9 +417,18 @@ class _ChatScreenState extends State<ChatScreen> {
                   child: BlocBuilder<ChatBloc, ChatState>(
                     builder: (context, chatState) {
                       if (chatState.messages.isEmpty) {
-                        final persona = context.read<SettingsBloc>().state.activePersona;
+                        final active = chatState.activeSession;
+                        final fallback = context.read<SettingsBloc>().state.activePersona;
+                        final effectivePersona = PersonaModel(
+                          id: active?.characterId ?? fallback.id,
+                          name: active?.characterName ?? fallback.name,
+                          description: 'Nhân cách AI',
+                          avatarEmoji: active?.characterAvatar ?? fallback.avatarEmoji,
+                          systemPrompt: active?.systemPrompt ?? fallback.systemPrompt,
+                        );
+
                         return EmptyChatView(
-                          persona: persona,
+                          persona: effectivePersona,
                           onSelectPrompt: (prompt) {
                             context.read<ChatBloc>().add(SendTextMessageEvent(prompt));
                           },
