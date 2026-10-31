@@ -7,7 +7,6 @@ import '../../../../services/llm/llm_service_factory.dart';
 import '../../../../services/storage/secure_storage_service.dart';
 import '../../../../services/storage/voice_storage_service.dart';
 import '../../../../services/voice/tts_service.dart';
-import '../../../voice/data/models/voice_model.dart';
 import '../../data/models/api_keys_model.dart';
 import '../../data/models/persona_model.dart';
 import '../../data/models/voice_config_model.dart';

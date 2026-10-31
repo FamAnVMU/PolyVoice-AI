@@ -12,7 +12,6 @@ import '../../data/models/chat_message.dart';
 import '../../data/models/chat_session.dart';
 import 'chat_event.dart';
 import '../../../../services/storage/character_storage_service.dart';
-import '../../../../features/voice/data/preset_voices.dart';
 import 'chat_state.dart';
 
 class ChatBloc extends Bloc<ChatEvent, ChatState> {
@@ -90,6 +89,12 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     _fallbackSub = coordinator.onFallbackNotificationStream.listen((msg) {
       add(NotifyFallbackEvent(msg));
     });
+
+    coordinator.ttsQueueManager.addFinishedListener(_onTtsPlaybackFinished);
+  }
+
+  void _onTtsPlaybackFinished() {
+    add(StopTtsPlaybackEvent());
   }
 
   Future<void> _onLoadChatHistory(
@@ -342,8 +347,8 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
 
     final charName = active?.characterName ?? fallback.name;
     final charAvatar = active?.characterAvatar ?? fallback.avatarEmoji;
-    final charPrompt = (active?.systemPrompt != null && active!.systemPrompt!.isNotEmpty)
-        ? active.systemPrompt!
+    final charPrompt = (active?.systemPrompt != null && active!.systemPrompt.isNotEmpty)
+        ? active.systemPrompt
         : fallback.systemPrompt;
 
     final profileAddon = state.userProfile.buildSystemPromptAddon();
@@ -467,7 +472,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       isStreaming: false,
     ));
 
-    await _saveCurrentMessages(updatedList);
+    await _saveCurrentMessages(updatedList, emit);
 
     // Auto-Memory Extraction (TASK 3): Trigger background extraction every 6 messages
     if (updatedList.length >= 4 && updatedList.length % 6 == 0) {
@@ -494,7 +499,6 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
           updatedAt: DateTime.now(),
         );
         await storageService.saveSession(_currentSession!);
-        final all = storageService.loadSessions();
         add(SearchSessionsEvent(state.searchQuery));
       }
     });
@@ -554,10 +558,6 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       voiceConfig: charVoice,
       geminiApiKey: settings.apiKeys.geminiKey,
     );
-
-    coordinator.ttsQueueManager.onQueueFinished = () {
-      add(StopTtsPlaybackEvent());
-    };
   }
 
   Future<void> _onStopTtsPlayback(
@@ -648,7 +648,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     emit(state.copyWith(isAutoScrollLocked: event.isLocked));
   }
 
-  Future<void> _saveCurrentMessages(List<ChatMessage> messages) async {
+  Future<void> _saveCurrentMessages(List<ChatMessage> messages, Emitter<ChatState> emit) async {
     if (_currentSession == null) {
       final defaultChar = CharacterLibrary.getFeaturedCharacters().first;
       _initNewSessionWithCharacter(defaultChar);
@@ -683,6 +683,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     _errorSub?.cancel();
     _transcriptSub?.cancel();
     _fallbackSub?.cancel();
+    coordinator.ttsQueueManager.removeFinishedListener(_onTtsPlaybackFinished);
     coordinator.dispose();
     return super.close();
   }

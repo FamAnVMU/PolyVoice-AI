@@ -59,7 +59,7 @@ class CharacterProfileDialog extends StatelessWidget {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: textSecondary.withOpacity(0.3),
+                  color: textSecondary.withValues(alpha: 0.3),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -81,7 +81,7 @@ class CharacterProfileDialog extends StatelessWidget {
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: AppColors.primary.withOpacity(0.3),
+                        color: AppColors.primary.withValues(alpha: 0.3),
                         blurRadius: 12,
                         offset: const Offset(0, 4),
                       ),
@@ -116,7 +116,7 @@ class CharacterProfileDialog extends StatelessWidget {
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                               margin: const EdgeInsets.only(right: 6),
                               decoration: BoxDecoration(
-                                color: AppColors.accentCyan.withOpacity(0.15),
+                                color: AppColors.accentCyan.withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(10),
                               ),
                               child: const Text(
@@ -127,7 +127,7 @@ class CharacterProfileDialog extends StatelessWidget {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                             decoration: BoxDecoration(
-                              color: AppColors.primary.withOpacity(0.15),
+                              color: AppColors.primary.withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Row(
@@ -163,7 +163,7 @@ class CharacterProfileDialog extends StatelessWidget {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                             decoration: BoxDecoration(
-                              color: (character.gender == 'male' ? Colors.blue : Colors.pink).withOpacity(0.12),
+                              color: (character.gender == 'male' ? Colors.blue : Colors.pink).withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
@@ -304,7 +304,7 @@ class CharacterProfileDialog extends StatelessWidget {
                 return Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: (isDark ? Colors.white : Colors.black).withOpacity(0.06),
+                    color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.06),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(

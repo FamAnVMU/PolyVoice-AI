@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../character/data/character_library.dart';
-import '../../../character/data/models/ai_character_model.dart';
 import '../bloc/chat_bloc.dart';
 import '../bloc/chat_event.dart';
 import '../bloc/chat_state.dart';
@@ -74,7 +73,7 @@ class _MessagesTabState extends State<MessagesTab> with SingleTickerProviderStat
                   width: 40,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: Colors.grey.withOpacity(0.4),
+                    color: Colors.grey.withValues(alpha: 0.4),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -296,8 +295,8 @@ class _MessagesTabState extends State<MessagesTab> with SingleTickerProviderStat
     Color textPrimary,
     Color textSecondary,
   ) {
-    final avatar = session.characterAvatar ?? '🤖';
-    final name = session.characterName ?? session.title;
+    final avatar = session.characterAvatar;
+    final name = session.characterName;
     final lastMessage = session.messages.isNotEmpty
         ? session.messages.last.content
         : 'Chưa có tin nhắn...';
@@ -307,7 +306,7 @@ class _MessagesTabState extends State<MessagesTab> with SingleTickerProviderStat
         color: cardBg,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: session.isPinned ? AppColors.warning.withOpacity(0.4) : borderColor,
+          color: session.isPinned ? AppColors.warning.withValues(alpha: 0.4) : borderColor,
           width: session.isPinned ? 1.5 : 1,
         ),
       ),
@@ -440,7 +439,7 @@ class _MessagesTabState extends State<MessagesTab> with SingleTickerProviderStat
       context: context,
       builder: (dlgContext) => AlertDialog(
         title: const Text('Xác nhận xóa'),
-        content: Text('Bạn có chắc chắn muốn xóa vĩnh viễn cuộc trò chuyện với "${session.characterName ?? session.title}"? Dữ liệu này không thể khôi phục nếu chưa sao lưu.'),
+        content: Text('Bạn có chắc chắn muốn xóa vĩnh viễn cuộc trò chuyện với "${session.characterName}"? Dữ liệu này không thể khôi phục nếu chưa sao lưu.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dlgContext).pop(),

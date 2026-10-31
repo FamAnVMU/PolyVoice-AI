@@ -311,7 +311,7 @@ class _ApiKeysViewState extends State<ApiKeysView> {
               margin: const EdgeInsets.fromLTRB(16, 12, 16, 6),
               padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
-                color: isDark ? Colors.white.withOpacity(0.06) : Colors.black.withOpacity(0.04),
+                color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.black.withValues(alpha: 0.04),
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Row(
@@ -366,7 +366,7 @@ class _ApiKeysViewState extends State<ApiKeysView> {
             boxShadow: isSelected
                 ? [
                     BoxShadow(
-                      color: AppColors.primary.withOpacity(0.35),
+                      color: AppColors.primary.withValues(alpha: 0.35),
                       blurRadius: 8,
                       offset: const Offset(0, 2),
                     ),
@@ -392,9 +392,9 @@ class _ApiKeysViewState extends State<ApiKeysView> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: AppColors.primary.withOpacity(0.12),
+        color: AppColors.primary.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.primary.withOpacity(0.4)),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.4)),
       ),
       child: Row(
         children: [
@@ -441,9 +441,9 @@ class _ApiKeysViewState extends State<ApiKeysView> {
         Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: AppColors.primary.withOpacity(0.08),
+            color: AppColors.primary.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.primary.withOpacity(0.25)),
+            border: Border.all(color: AppColors.primary.withValues(alpha: 0.25)),
           ),
           child: Row(
             children: [
@@ -598,7 +598,7 @@ class _ApiKeysViewState extends State<ApiKeysView> {
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: AppColors.accentPink.withOpacity(0.15),
+                          color: AppColors.accentPink.withValues(alpha: 0.15),
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(Icons.graphic_eq_rounded, color: AppColors.accentPink, size: 20),
@@ -614,8 +614,8 @@ class _ApiKeysViewState extends State<ApiKeysView> {
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
                       color: _elevenLabsKeyController.text.trim().isNotEmpty
-                          ? AppColors.success.withOpacity(0.15)
-                          : Colors.grey.withOpacity(0.12),
+                          ? AppColors.success.withValues(alpha: 0.15)
+                          : Colors.grey.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
@@ -706,9 +706,9 @@ class _ApiKeysViewState extends State<ApiKeysView> {
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
           color: testStatus == ApiTestStatus.success
-              ? AppColors.success.withOpacity(0.5)
+              ? AppColors.success.withValues(alpha: 0.5)
               : testStatus == ApiTestStatus.failed
-                  ? AppColors.error.withOpacity(0.5)
+                  ? AppColors.error.withValues(alpha: 0.5)
                   : borderColor,
           width: testStatus != ApiTestStatus.idle ? 1.5 : 1,
         ),
@@ -722,7 +722,7 @@ class _ApiKeysViewState extends State<ApiKeysView> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: accentColor.withOpacity(0.15),
+                  color: accentColor.withValues(alpha: 0.15),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(iconData, color: accentColor, size: 20),
@@ -746,7 +746,7 @@ class _ApiKeysViewState extends State<ApiKeysView> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: hasKey ? AppColors.success.withOpacity(0.15) : Colors.grey.withOpacity(0.12),
+                  color: hasKey ? AppColors.success.withValues(alpha: 0.15) : Colors.grey.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
@@ -808,10 +808,10 @@ class _ApiKeysViewState extends State<ApiKeysView> {
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
                 color: testStatus == ApiTestStatus.success
-                    ? AppColors.success.withOpacity(0.12)
+                    ? AppColors.success.withValues(alpha: 0.12)
                     : testStatus == ApiTestStatus.failed
-                        ? AppColors.error.withOpacity(0.12)
-                        : AppColors.primary.withOpacity(0.12),
+                        ? AppColors.error.withValues(alpha: 0.12)
+                        : AppColors.primary.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
@@ -918,9 +918,9 @@ class _ApiKeysViewState extends State<ApiKeysView> {
         Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: AppColors.success.withOpacity(0.08),
+            color: AppColors.success.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.success.withOpacity(0.3)),
+            border: Border.all(color: AppColors.success.withValues(alpha: 0.3)),
           ),
           child: Row(
             children: [
@@ -988,8 +988,8 @@ class _ApiKeysViewState extends State<ApiKeysView> {
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                     color: profile.tier == DeviceAiTier.incompatible
-                        ? AppColors.warning.withOpacity(0.18)
-                        : AppColors.accentCyan.withOpacity(0.18),
+                        ? AppColors.warning.withValues(alpha: 0.18)
+                        : AppColors.accentCyan.withValues(alpha: 0.18),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
@@ -1098,7 +1098,7 @@ class _ApiKeysViewState extends State<ApiKeysView> {
               color: cardBg,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: isDownloaded ? AppColors.success.withOpacity(0.5) : borderColor,
+                color: isDownloaded ? AppColors.success.withValues(alpha: 0.5) : borderColor,
                 width: isDownloaded ? 1.5 : 1,
               ),
             ),
@@ -1118,8 +1118,8 @@ class _ApiKeysViewState extends State<ApiKeysView> {
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
                         color: isDownloaded
-                            ? AppColors.success.withOpacity(0.18)
-                            : AppColors.primary.withOpacity(0.12),
+                            ? AppColors.success.withValues(alpha: 0.18)
+                            : AppColors.primary.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
@@ -1147,7 +1147,7 @@ class _ApiKeysViewState extends State<ApiKeysView> {
                     child: LinearProgressIndicator(
                       value: progress,
                       minHeight: 6,
-                      backgroundColor: Colors.grey.withOpacity(0.2),
+                      backgroundColor: Colors.grey.withValues(alpha: 0.2),
                       valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
                     ),
                   ),
@@ -1195,7 +1195,7 @@ class _ApiKeysViewState extends State<ApiKeysView> {
                             LocalModelManager.instance.downloadModel(model);
                           },
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primary.withOpacity(0.18),
+                            backgroundColor: AppColors.primary.withValues(alpha: 0.18),
                             foregroundColor: AppColors.primaryLight,
                             elevation: 0,
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -1221,7 +1221,7 @@ class _ApiKeysViewState extends State<ApiKeysView> {
         margin: const EdgeInsets.symmetric(horizontal: 3),
         padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.04),
+          color: Colors.white.withValues(alpha: 0.04),
           borderRadius: BorderRadius.circular(10),
         ),
         child: Column(

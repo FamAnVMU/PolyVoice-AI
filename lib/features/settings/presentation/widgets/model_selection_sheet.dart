@@ -70,7 +70,7 @@ class _ModelSelectionSheetState extends State<ModelSelectionSheet> {
             width: 40,
             height: 4,
             decoration: BoxDecoration(
-              color: Colors.grey.withOpacity(0.4),
+              color: Colors.grey.withValues(alpha: 0.4),
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -173,8 +173,8 @@ class _ModelSelectionSheetState extends State<ModelSelectionSheet> {
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
                         color: isSelected
-                            ? AppColors.primary.withOpacity(0.12)
-                            : (isDark ? Colors.white.withOpacity(0.04) : Colors.black.withOpacity(0.02)),
+                            ? AppColors.primary.withValues(alpha: 0.12)
+                            : (isDark ? Colors.white.withValues(alpha: 0.04) : Colors.black.withValues(alpha: 0.02)),
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
                           color: isSelected ? AppColors.primary : borderColor,
@@ -202,8 +202,8 @@ class _ModelSelectionSheetState extends State<ModelSelectionSheet> {
                                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                       decoration: BoxDecoration(
                                         color: model.isRecommended
-                                            ? AppColors.accentCyan.withOpacity(0.18)
-                                            : Colors.grey.withOpacity(0.15),
+                                            ? AppColors.accentCyan.withValues(alpha: 0.18)
+                                            : Colors.grey.withValues(alpha: 0.15),
                                         borderRadius: BorderRadius.circular(6),
                                       ),
                                       child: Text(

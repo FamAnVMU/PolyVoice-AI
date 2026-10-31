@@ -164,7 +164,7 @@ class TtsService {
           style: effectiveConfig.style,
         ).timeout(const Duration(milliseconds: 2500));
 
-        await _nativeMediaService.playAudio(
+        final played = await _nativeMediaService.playAudio(
           audioPath,
           onCompleted: () {
             _isPlaying = false;
@@ -174,7 +174,10 @@ class TtsService {
             }
           },
         );
-        return;
+        if (played) {
+          await _currentSpeechCompleter?.future;
+          return;
+        }
       } catch (_) {
         // Fallback transparently to next tier (Edge-TTS)
       }
@@ -195,7 +198,7 @@ class TtsService {
           gender: isMale ? 'male' : 'female',
         ).timeout(const Duration(milliseconds: 2500));
 
-        await _nativeMediaService.playAudio(
+        final played = await _nativeMediaService.playAudio(
           audioPath,
           onCompleted: () {
             _isPlaying = false;
@@ -205,7 +208,10 @@ class TtsService {
             }
           },
         );
-        return;
+        if (played) {
+          await _currentSpeechCompleter?.future;
+          return;
+        }
       } catch (_) {
         // Fallback transparently to Tier 3 (Gemini / Native)
       }
@@ -238,7 +244,7 @@ class TtsService {
           pitch: effectivePitch,
         );
 
-        await _nativeMediaService.playAudio(
+        final played = await _nativeMediaService.playAudio(
           audioPath,
           onCompleted: () {
             _isPlaying = false;
@@ -248,7 +254,10 @@ class TtsService {
             }
           },
         );
-        return;
+        if (played) {
+          await _currentSpeechCompleter?.future;
+          return;
+        }
       } catch (_) {
         // Fallback transparently to Tier 4 Enhanced Local Device TTS on network or API failure
       }

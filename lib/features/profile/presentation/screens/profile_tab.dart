@@ -72,7 +72,7 @@ class _ProfileTabState extends State<ProfileTab> {
                         width: 40,
                         height: 4,
                         decoration: BoxDecoration(
-                          color: Colors.grey.withOpacity(0.4),
+                          color: Colors.grey.withValues(alpha: 0.4),
                           borderRadius: BorderRadius.circular(2),
                         ),
                       ),
@@ -107,7 +107,7 @@ class _ProfileTabState extends State<ProfileTab> {
                             width: 44,
                             height: 44,
                             decoration: BoxDecoration(
-                              color: isSelected ? AppColors.primary.withOpacity(0.25) : Colors.transparent,
+                              color: isSelected ? AppColors.primary.withValues(alpha: 0.25) : Colors.transparent,
                               shape: BoxShape.circle,
                               border: Border.all(
                                 color: isSelected ? AppColors.primary : borderColor,
@@ -245,7 +245,7 @@ class _ProfileTabState extends State<ProfileTab> {
         margin: const EdgeInsets.only(bottom: 6),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary.withOpacity(0.15) : Colors.transparent,
+          color: isSelected ? AppColors.primary.withValues(alpha: 0.15) : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isSelected ? AppColors.primary : (isDark ? AppColors.darkCardBorder : AppColors.lightCardBorder),
@@ -285,7 +285,7 @@ class _ProfileTabState extends State<ProfileTab> {
           decoration: BoxDecoration(
             color: isSelected ? AppColors.primary : Colors.transparent,
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: isSelected ? AppColors.primary : Colors.grey.withOpacity(0.4)),
+            border: Border.all(color: isSelected ? AppColors.primary : Colors.grey.withValues(alpha: 0.4)),
           ),
           child: Center(
             child: Text(
@@ -370,7 +370,7 @@ class _ProfileTabState extends State<ProfileTab> {
                   width: double.maxFinite,
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.06),
+                    color: Colors.black.withValues(alpha: 0.06),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: SingleChildScrollView(
@@ -652,7 +652,7 @@ class _ProfileTabState extends State<ProfileTab> {
                   subtitle: isDark ? 'Giao diện Tối (Dark Mode)' : 'Giao diện Sáng (Light Mode)',
                   trailing: Switch(
                     value: isDark,
-                    activeColor: AppColors.primary,
+                    activeThumbColor: AppColors.primary,
                     onChanged: (_) {
                       context.read<SettingsBloc>().add(ToggleThemeModeEvent());
                     },
@@ -765,7 +765,7 @@ class _ProfileTabState extends State<ProfileTab> {
         leading: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: iconColor.withOpacity(0.12),
+            color: iconColor.withValues(alpha: 0.12),
             borderRadius: BorderRadius.circular(10),
           ),
           child: Icon(icon, color: iconColor, size: 22),

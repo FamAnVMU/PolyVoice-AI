@@ -103,7 +103,7 @@ class _HomeTabState extends State<HomeTab> {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                             decoration: BoxDecoration(
-                              color: AppColors.primary.withOpacity(0.12),
+                              color: AppColors.primary.withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: Text(
@@ -129,7 +129,7 @@ class _HomeTabState extends State<HomeTab> {
                             shape: BoxShape.circle,
                             boxShadow: [
                               BoxShadow(
-                                color: AppColors.accentPink.withOpacity(0.35),
+                                color: AppColors.accentPink.withValues(alpha: 0.35),
                                 blurRadius: 10,
                                 offset: const Offset(0, 3),
                               ),
@@ -162,7 +162,7 @@ class _HomeTabState extends State<HomeTab> {
                   borderRadius: BorderRadius.circular(22),
                   boxShadow: [
                     BoxShadow(
-                      color: AppColors.primary.withOpacity(0.3),
+                      color: AppColors.primary.withValues(alpha: 0.3),
                       blurRadius: 16,
                       offset: const Offset(0, 6),
                     ),
@@ -176,7 +176,7 @@ class _HomeTabState extends State<HomeTab> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
+                            color: Colors.white.withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: const Text(
@@ -203,7 +203,7 @@ class _HomeTabState extends State<HomeTab> {
                     Text(
                       'Mỗi nhân vật mang cá tính, chuyên môn, giọng nói riêng biệt và bộ nhớ cuộc trò chuyện hoàn toàn độc lập.',
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.88),
+                        color: Colors.white.withValues(alpha: 0.88),
                         fontSize: 13,
                         height: 1.35,
                       ),
@@ -255,7 +255,7 @@ class _HomeTabState extends State<HomeTab> {
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 1.5),
                                   decoration: BoxDecoration(
-                                    color: AppColors.accentCyan.withOpacity(0.18),
+                                    color: AppColors.accentCyan.withValues(alpha: 0.18),
                                     borderRadius: BorderRadius.circular(10),
                                   ),
                                   child: Text(
@@ -308,7 +308,7 @@ class _HomeTabState extends State<HomeTab> {
                               color: cardBg,
                               borderRadius: BorderRadius.circular(16),
                               border: Border.all(
-                                color: AppColors.primary.withOpacity(0.35),
+                                color: AppColors.primary.withValues(alpha: 0.35),
                                 style: BorderStyle.solid,
                               ),
                             ),
@@ -318,7 +318,7 @@ class _HomeTabState extends State<HomeTab> {
                                   width: 44,
                                   height: 44,
                                   decoration: BoxDecoration(
-                                    color: AppColors.primary.withOpacity(0.12),
+                                    color: AppColors.primary.withValues(alpha: 0.12),
                                     shape: BoxShape.circle,
                                   ),
                                   child: const Icon(
@@ -380,7 +380,7 @@ class _HomeTabState extends State<HomeTab> {
                                       color: cardBg,
                                       borderRadius: BorderRadius.circular(20),
                                       border: Border.all(
-                                        color: AppColors.primary.withOpacity(0.35),
+                                        color: AppColors.primary.withValues(alpha: 0.35),
                                       ),
                                     ),
                                     child: Center(
@@ -390,7 +390,7 @@ class _HomeTabState extends State<HomeTab> {
                                           Container(
                                             padding: const EdgeInsets.all(12),
                                             decoration: BoxDecoration(
-                                              color: AppColors.primary.withOpacity(0.12),
+                                              color: AppColors.primary.withValues(alpha: 0.12),
                                               shape: BoxShape.circle,
                                             ),
                                             child: const Icon(
@@ -538,8 +538,8 @@ class _HomeTabState extends State<HomeTab> {
 
                   return Column(
                     children: recentSessions.map((session) {
-                      final charAvatar = session.characterAvatar ?? '🤖';
-                      final charName = session.characterName ?? session.title;
+                      final charAvatar = session.characterAvatar;
+                      final charName = session.characterName;
                       final lastMessage = session.messages.isNotEmpty
                           ? session.messages.last.content
                           : 'Bắt đầu cuộc trò chuyện...';
@@ -580,15 +580,14 @@ class _HomeTabState extends State<HomeTab> {
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
-                              if (session.voiceConfig != null) ...[
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                                   decoration: BoxDecoration(
-                                    color: AppColors.accentCyan.withOpacity(0.12),
+                                    color: AppColors.accentCyan.withValues(alpha: 0.12),
                                     borderRadius: BorderRadius.circular(6),
                                   ),
                                   child: Text(
-                                    '🎙️ ${session.voiceConfig!.voiceName}',
+                                    '🎙️ ${session.voiceConfig.voiceName}',
                                     style: const TextStyle(
                                       fontSize: 9,
                                       color: AppColors.accentCyan,
@@ -597,7 +596,6 @@ class _HomeTabState extends State<HomeTab> {
                                   ),
                                 ),
                                 const SizedBox(width: 4),
-                              ],
                               if (session.isPinned)
                                 const Icon(Icons.push_pin_rounded, size: 14, color: AppColors.warning),
                             ],
@@ -656,8 +654,8 @@ class _HomeTabState extends State<HomeTab> {
           boxShadow: [
             BoxShadow(
               color: isPlaying
-                  ? AppColors.accentCyan.withOpacity(0.25)
-                  : Colors.black.withOpacity(isDark ? 0.2 : 0.04),
+                  ? AppColors.accentCyan.withValues(alpha: 0.25)
+                  : Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
               blurRadius: isPlaying ? 10 : 8,
               offset: const Offset(0, 3),
             ),
@@ -715,7 +713,7 @@ class _HomeTabState extends State<HomeTab> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                   decoration: BoxDecoration(
-                    color: (isMale ? Colors.blue : Colors.pink).withOpacity(0.15),
+                    color: (isMale ? Colors.blue : Colors.pink).withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
@@ -761,7 +759,7 @@ class _HomeTabState extends State<HomeTab> {
                   );
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary.withOpacity(0.15),
+                  backgroundColor: AppColors.primary.withValues(alpha: 0.15),
                   foregroundColor: AppColors.primaryLight,
                   elevation: 0,
                   padding: EdgeInsets.zero,

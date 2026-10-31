@@ -125,10 +125,10 @@ class _ApiTestFloatingBannerState extends State<ApiTestFloatingBanner> with Sing
                   decoration: BoxDecoration(
                     color: bannerColor,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: borderColor.withOpacity(0.6), width: 1.5),
+                    border: Border.all(color: borderColor.withValues(alpha: 0.6), width: 1.5),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(isDark ? 0.45 : 0.15),
+                        color: Colors.black.withValues(alpha: isDark ? 0.45 : 0.15),
                         blurRadius: 18,
                         offset: const Offset(0, 8),
                       ),
@@ -173,7 +173,7 @@ class _ApiTestFloatingBannerState extends State<ApiTestFloatingBanner> with Sing
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
                                   decoration: BoxDecoration(
-                                    color: borderColor.withOpacity(0.18),
+                                    color: borderColor.withValues(alpha: 0.18),
                                     borderRadius: BorderRadius.circular(6),
                                   ),
                                   child: Text(

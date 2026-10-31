@@ -231,7 +231,7 @@ class _DiscoverTabState extends State<DiscoverTab> {
                           margin: const EdgeInsets.symmetric(horizontal: 3),
                           padding: const EdgeInsets.symmetric(vertical: 7),
                           decoration: BoxDecoration(
-                            color: isSelected ? AppColors.primary.withOpacity(0.15) : cardBg,
+                            color: isSelected ? AppColors.primary.withValues(alpha: 0.15) : cardBg,
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
                               color: isSelected ? AppColors.primary : borderColor,
@@ -324,7 +324,7 @@ class _DiscoverTabState extends State<DiscoverTab> {
                         fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                       ),
                       backgroundColor: cardBg,
-                      selectedColor: color.withOpacity(0.18),
+                      selectedColor: color.withValues(alpha: 0.18),
                       side: BorderSide(color: isSelected ? color : borderColor),
                     );
                   },
@@ -455,8 +455,8 @@ class _DiscoverTabState extends State<DiscoverTab> {
           boxShadow: [
             BoxShadow(
               color: isPlaying
-                  ? AppColors.accentCyan.withOpacity(0.25)
-                  : Colors.black.withOpacity(isDark ? 0.2 : 0.04),
+                  ? AppColors.accentCyan.withValues(alpha: 0.25)
+                  : Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
               blurRadius: isPlaying ? 12 : 8,
               offset: const Offset(0, 3),
             ),
@@ -493,7 +493,7 @@ class _DiscoverTabState extends State<DiscoverTab> {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
                             decoration: BoxDecoration(
-                              color: (isMale ? Colors.blue : Colors.pink).withOpacity(0.15),
+                              color: (isMale ? Colors.blue : Colors.pink).withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
@@ -510,7 +510,7 @@ class _DiscoverTabState extends State<DiscoverTab> {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
                               decoration: BoxDecoration(
-                                color: AppColors.accentCyan.withOpacity(0.15),
+                                color: AppColors.accentCyan.withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: const Text(
@@ -588,7 +588,7 @@ class _DiscoverTabState extends State<DiscoverTab> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
-                color: (isDark ? Colors.white : Colors.black).withOpacity(0.04),
+                color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.04),
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Row(

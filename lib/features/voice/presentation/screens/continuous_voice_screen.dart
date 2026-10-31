@@ -214,7 +214,7 @@ class _ContinuousVoiceScreenState extends State<ContinuousVoiceScreen> {
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                                   decoration: BoxDecoration(
-                                    color: AppColors.primary.withOpacity(0.2),
+                                    color: AppColors.primary.withValues(alpha: 0.2),
                                     borderRadius: BorderRadius.circular(6),
                                   ),
                                   child: Text(

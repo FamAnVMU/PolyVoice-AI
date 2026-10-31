@@ -114,7 +114,7 @@ class _ChatScreenState extends State<ChatScreen> {
                       width: 40,
                       height: 4,
                       decoration: BoxDecoration(
-                        color: Colors.grey.withOpacity(0.4),
+                        color: Colors.grey.withValues(alpha: 0.4),
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
@@ -292,7 +292,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   final defaultChar = CharacterLibrary.getFeaturedCharacters().first;
                   final charName = active?.characterName ?? defaultChar.name;
                   final charAvatar = active?.characterAvatar ?? defaultChar.avatar;
-                  final voiceName = active?.voiceConfig?.voiceName ?? 'Giọng mặc định';
+                  final voiceName = active?.voiceConfig.voiceName ?? 'Giọng mặc định';
                   final provider = settingsState.apiKeys.selectedProvider.toUpperCase();
                   final model = settingsState.apiKeys.selectedModel;
 
@@ -503,6 +503,7 @@ class _ChatScreenState extends State<ChatScreen> {
                               chatState.activeSpeakingMessageId == msg.id;
 
                           return MessageBubble(
+                            key: ValueKey(msg.id),
                             message: msg,
                             isSpeaking: isSpeakingThis,
                             onSpeakPressed: () {

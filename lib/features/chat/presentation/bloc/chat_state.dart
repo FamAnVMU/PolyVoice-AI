@@ -60,7 +60,7 @@ class ChatState extends Equatable {
       final q = searchQuery.toLowerCase().trim();
       list = list.where((s) {
         final title = s.title.toLowerCase();
-        final charName = (s.characterName ?? '').toLowerCase();
+        final charName = s.characterName.toLowerCase();
         final lastMsg = s.messages.isNotEmpty ? s.messages.last.content.toLowerCase() : '';
         return title.contains(q) || charName.contains(q) || lastMsg.contains(q);
       }).toList();

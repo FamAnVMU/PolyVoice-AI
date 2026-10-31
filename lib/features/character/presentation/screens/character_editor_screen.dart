@@ -389,9 +389,9 @@ class _CharacterEditorScreenState extends State<CharacterEditorScreen> {
                   padding: const EdgeInsets.all(14),
                   margin: const EdgeInsets.only(bottom: 20),
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.08),
+                    color: AppColors.primary.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+                    border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
                   ),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -435,7 +435,7 @@ class _CharacterEditorScreenState extends State<CharacterEditorScreen> {
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: AppColors.primary.withOpacity(0.3),
+                            color: AppColors.primary.withValues(alpha: 0.3),
                             blurRadius: 10,
                             offset: const Offset(0, 4),
                           ),
@@ -694,7 +694,7 @@ class _CharacterEditorScreenState extends State<CharacterEditorScreen> {
                     return ChoiceChip(
                       label: Text(trait),
                       selected: isSel,
-                      selectedColor: AppColors.primary.withOpacity(0.2),
+                      selectedColor: AppColors.primary.withValues(alpha: 0.2),
                       labelStyle: TextStyle(
                         fontSize: 12,
                         color: isSel ? AppColors.primaryLight : textSecondary,
@@ -785,10 +785,10 @@ class _CharacterEditorScreenState extends State<CharacterEditorScreen> {
                       width: 50,
                       height: 50,
                       decoration: BoxDecoration(
-                        color: _avatar == emoji ? AppColors.primary.withOpacity(0.2) : Colors.transparent,
+                        color: _avatar == emoji ? AppColors.primary.withValues(alpha: 0.2) : Colors.transparent,
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: _avatar == emoji ? AppColors.primary : Colors.grey.withOpacity(0.3),
+                          color: _avatar == emoji ? AppColors.primary : Colors.grey.withValues(alpha: 0.3),
                           width: 2,
                         ),
                       ),

@@ -41,7 +41,7 @@ class AppSystemSettingsView extends StatelessWidget {
                   subtitle: Text('Giao diện tối màu bảo vệ mắt và tiết kiệm pin OLED',
                       style: TextStyle(fontSize: 12, color: textSecondary)),
                   value: state.themeMode == ThemeMode.dark,
-                  activeColor: AppColors.primary,
+                  activeThumbColor: AppColors.primary,
                   onChanged: (_) {
                     context.read<SettingsBloc>().add(ToggleThemeModeEvent());
                   },

@@ -24,7 +24,7 @@ class SentenceChunker {
   static final Set<String> _protectedAbbreviations = {
     'ts', 'ths', 'pgs', 'gs', 'tp', 'bs', 'kts', 'cn', 'th',
     'mr', 'mrs', 'ms', 'dr', 'prof', 'st', 'no', 'vs', 'etc',
-    'approx', 'dept', 'jr', 'sr', 'e.g', 'i.e',
+    'approx', 'dept', 'jr', 'sr', 'e.g', 'i.e', 'v.v', 'v..v', 'vv',
   };
 
   /// Ingests a new token and returns any completed chunks ready for TTS synthesis.
@@ -64,6 +64,11 @@ class SentenceChunker {
       final int matchIndex = searchStart + match.start;
       final int delimiterEnd = searchStart + match.end;
       final String matchedDelimiter = match.group(1) ?? '';
+
+      // Safeguard against splitting streaming ellipsis prematurely: if '..' is at buffer tail, wait for potential 3rd dot
+      if (matchedDelimiter == '..' && delimiterEnd == current.length) {
+        break;
+      }
 
       // Check 1: Decimal & thousand separator protection (e.g., 3.14 or 10.000)
       if (matchedDelimiter == '.' && matchIndex > 0 && matchIndex < current.length - 1) {
@@ -130,11 +135,21 @@ class SentenceChunker {
 
   static bool _isWordChar(String char) {
     if (char.isEmpty) return false;
-    final code = char.codeUnitAt(0);
-    return (code >= 65 && code <= 90) || // A-Z
-        (code >= 97 && code <= 122) ||   // a-z
-        (code >= 48 && code <= 57) ||    // 0-9
-        code == 46;                      // '.' for e.g. Th.S.
+    return char != ' ' &&
+        char != '\t' &&
+        char != '\n' &&
+        char != '\r' &&
+        char != ',' &&
+        char != ';' &&
+        char != ':' &&
+        char != '(' &&
+        char != ')' &&
+        char != '[' &&
+        char != ']' &&
+        char != '"' &&
+        char != '\'' &&
+        char != '“' &&
+        char != '”';
   }
 
   /// Flushes any remaining text left in the buffer when the LLM stream ends.

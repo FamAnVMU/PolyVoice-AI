@@ -128,6 +128,39 @@ class VietnameseTextNormalizer {
     '°F': 'độ ép',
   };
 
+  // Precompiled regex for maximum throughput and zero GC allocation in streaming TTS
+  static final RegExp _dateRegex = RegExp(r'\b(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})\b');
+  static final RegExp _timeRegex = RegExp(r'\b(\d{1,2}):(\d{2})\b');
+  static final RegExp _dollarRegex = RegExp(r'\$(\d+([.,]\d+)?)');
+  static final RegExp _kCurrencyRegex = RegExp(r'(\d+([.,]\d+)?)\s*k\b', caseSensitive: false);
+  static final RegExp _multiSpaceRegex = RegExp(r'\s+');
+  static final RegExp _codeBlockRegex = RegExp(r'```[\s\S]*?```');
+  static final RegExp _inlineCodeRegex = RegExp(r'`([^`]+)`');
+  static final RegExp _markdownLinkRegex = RegExp(r'\[([^\]]+)\]\([^\)]+\)');
+  static final RegExp _boldItalicRegex = RegExp(r'[*_]{1,3}([^*_]+)[*_]{1,3}');
+  static final RegExp _headerRegex = RegExp(r'^[#]{1,6}\s+', multiLine: true);
+  static final RegExp _bulletDashRegex = RegExp(r'^\s*[-*+]\s+', multiLine: true);
+  static final RegExp _numberedStepRegex = RegExp(r'^\s*\d+\.\s+', multiLine: true);
+  static final RegExp _ellipsisRegex = RegExp(r'\.{3,}');
+  static final RegExp _punctSpacingRegex = RegExp(r'([,;:—–])([^\s])');
+  static final RegExp _questionMarkRegex = RegExp(r'\?+');
+  static final RegExp _exclamationMarkRegex = RegExp(r'!+');
+  static final RegExp _isolatedDigitsRegex = RegExp(r'\b\d+\b');
+
+  static final List<MapEntry<RegExp, String>> _compiledUnits = _units.entries.map((entry) {
+    return MapEntry(
+      RegExp(r'(\d+([.,]\d+)?)\s*' + RegExp.escape(entry.key) + r'(?=[^\w]|$)'),
+      entry.value,
+    );
+  }).toList();
+
+  static final List<MapEntry<RegExp, String>> _compiledAbbreviations = _abbreviations.entries.map((entry) {
+    return MapEntry(
+      RegExp(r'(^|[^\w])' + RegExp.escape(entry.key) + r'(?=[^\w]|$)'),
+      entry.value,
+    );
+  }).toList();
+
   /// Main entry point: normalizes text into natural, easy-to-pronounce Vietnamese speech.
   static String normalize(
     String rawText, {
@@ -143,45 +176,39 @@ class VietnameseTextNormalizer {
 
     // 2. Expand Dates: e.g., 30/10/2026 or 30-10-2026 -> ngày 30 tháng 10 năm 2026
     text = text.replaceAllMapped(
-      RegExp(r'\b(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})\b'),
+      _dateRegex,
       (m) => 'ngày ${m[1]} tháng ${m[2]} năm ${m[3]}',
     );
 
     // 3. Expand Times: e.g., 18:30 or 08:45 -> 18 giờ 30 phút
     text = text.replaceAllMapped(
-      RegExp(r'\b(\d{1,2}):(\d{2})\b'),
+      _timeRegex,
       (m) => '${m[1]} giờ ${m[2]} phút',
     );
 
     // 4. Currency and Percentage with numbers
     text = text.replaceAllMapped(
-      RegExp(r'\$(\d+([.,]\d+)?)'),
+      _dollarRegex,
       (m) => '${m[1]} đô la Mỹ',
     );
 
     text = text.replaceAllMapped(
-      RegExp(r'(\d+([.,]\d+)?)\s*k\b', caseSensitive: false),
+      _kCurrencyRegex,
       (m) => '${m[1]} nghìn',
     );
 
-    // 5. Expand Units with attached numbers (e.g., 100km/h, 50kg, 20%)
-    for (final entry in _units.entries) {
-      final unitPattern = RegExp(
-        r'(\d+([.,]\d+)?)\s*' + RegExp.escape(entry.key) + r'(?=[^\w]|$)',
-      );
+    // 5. Expand Units with attached numbers (precompiled)
+    for (final entry in _compiledUnits) {
       text = text.replaceAllMapped(
-        unitPattern,
+        entry.key,
         (m) => '${m[1]} ${entry.value}',
       );
     }
 
-    // 6. Expand Abbreviations
-    for (final entry in _abbreviations.entries) {
-      final abbrPattern = RegExp(
-        r'(^|[^\w])' + RegExp.escape(entry.key) + r'(?=[^\w]|$)',
-      );
+    // 6. Expand Abbreviations (precompiled)
+    for (final entry in _compiledAbbreviations) {
       text = text.replaceAllMapped(
-        abbrPattern,
+        entry.key,
         (m) => '${m[1]}${entry.value}',
       );
     }
@@ -195,25 +222,19 @@ class VietnameseTextNormalizer {
     }
 
     // Clean multiple spaces and return
-    return text.replaceAll(RegExp(r'\s+'), ' ').trim();
+    return text.replaceAll(_multiSpaceRegex, ' ').trim();
   }
 
   /// Removes Markdown formatting to prevent TTS reading raw symbols
   static String _stripMarkdown(String input) {
     var out = input;
-    // Remove code blocks ```...```
-    out = out.replaceAll(RegExp(r'```[\s\S]*?```'), ' đoạn mã ');
-    // Remove inline code `...`
-    out = out.replaceAll(RegExp(r'`([^`]+)`'), r'$1');
-    // Remove Markdown links [text](url) -> text
-    out = out.replaceAll(RegExp(r'\[([^\]]+)\]\([^\)]+\)'), r'$1');
-    // Remove bold/italic **text**, *text*, __text__, _text_
-    out = out.replaceAll(RegExp(r'[*_]{1,3}([^*_]+)[*_]{1,3}'), r'$1');
-    // Remove headers #, ##, ###
-    out = out.replaceAll(RegExp(r'^[#]{1,6}\s+', multiLine: true), '');
-    // Clean bullet points: - item, * item, 1. item -> item with a pause
-    out = out.replaceAll(RegExp(r'^\s*[-*+]\s+', multiLine: true), ', ');
-    out = out.replaceAll(RegExp(r'^\s*\d+\.\s+', multiLine: true), ', bước ');
+    out = out.replaceAll(_codeBlockRegex, ' đoạn mã ');
+    out = out.replaceAll(_inlineCodeRegex, r'$1');
+    out = out.replaceAll(_markdownLinkRegex, r'$1');
+    out = out.replaceAll(_boldItalicRegex, r'$1');
+    out = out.replaceAll(_headerRegex, '');
+    out = out.replaceAll(_bulletDashRegex, ', ');
+    out = out.replaceAll(_numberedStepRegex, ', bước ');
     return out;
   }
 
@@ -222,16 +243,16 @@ class VietnameseTextNormalizer {
     var out = text;
 
     // Expand ellipses ... into a thoughtful pause
-    out = out.replaceAll(RegExp(r'\.{3,}'), '... , ');
+    out = out.replaceAll(_ellipsisRegex, '... , ');
 
     // Ensure space after commas, semicolons, colons
-    out = out.replaceAllMapped(RegExp(r'([,;:—–])([^\s])'), (m) => '${m[1]} ${m[2]}');
+    out = out.replaceAllMapped(_punctSpacingRegex, (m) => '${m[1]} ${m[2]}');
 
     // Emphasize question intonation
-    out = out.replaceAllMapped(RegExp(r'\?+'), (m) => '? , ');
+    out = out.replaceAllMapped(_questionMarkRegex, (m) => '? , ');
 
     // Emphasize exclamation
-    out = out.replaceAllMapped(RegExp(r'!+'), (m) => '! , ');
+    out = out.replaceAllMapped(_exclamationMarkRegex, (m) => '! , ');
 
     // Inject breathing micro-pauses at natural Vietnamese discourse markers
     const markers = [
@@ -262,7 +283,7 @@ class VietnameseTextNormalizer {
 
   /// Converts isolated numerical digits into written Vietnamese words
   static String _convertNumbersToWords(String text) {
-    return text.replaceAllMapped(RegExp(r'\b\d+\b'), (m) {
+    return text.replaceAllMapped(_isolatedDigitsRegex, (m) {
       final numStr = m[0]!;
       if (numStr.length == 4 && (numStr.startsWith('19') || numStr.startsWith('20'))) {
         return _readNumber(int.tryParse(numStr) ?? 0);

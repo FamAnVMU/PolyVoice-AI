@@ -60,7 +60,6 @@ class _PulsingOrbState extends State<PulsingOrb> with TickerProviderStateMixin {
       case PipelineStatus.error:
         return [AppColors.error, const Color(0xFFFF7675)];
       case PipelineStatus.idle:
-      default:
         return AppColors.orbIdleGradient;
     }
   }
@@ -76,7 +75,6 @@ class _PulsingOrbState extends State<PulsingOrb> with TickerProviderStateMixin {
       case PipelineStatus.error:
         return 'Tap to retry';
       case PipelineStatus.idle:
-      default:
         return 'Tap orb to talk';
     }
   }
@@ -92,7 +90,6 @@ class _PulsingOrbState extends State<PulsingOrb> with TickerProviderStateMixin {
       case PipelineStatus.error:
         return Icons.refresh;
       case PipelineStatus.idle:
-      default:
         return Icons.mic_none_rounded;
     }
   }

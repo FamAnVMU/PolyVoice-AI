@@ -14,7 +14,19 @@ class TtsQueueManager {
   VoiceConfiguration? _currentVoiceConfig;
   String? _currentGeminiKey;
   bool _isProcessing = false;
-  bool _isInterrupted = false;
+  int _epoch = 0;
+
+  final List<void Function()> _finishedListeners = [];
+
+  void addFinishedListener(void Function() listener) {
+    if (!_finishedListeners.contains(listener)) {
+      _finishedListeners.add(listener);
+    }
+  }
+
+  void removeFinishedListener(void Function() listener) {
+    _finishedListeners.remove(listener);
+  }
 
   Function()? onQueueStarted;
   Function()? onQueueFinished;
@@ -47,10 +59,10 @@ class TtsQueueManager {
   Future<void> _processQueue() async {
     if (_isProcessing) return;
     _isProcessing = true;
-    _isInterrupted = false;
+    final int currentEpoch = _epoch;
     onQueueStarted?.call();
 
-    while (_sentenceQueue.isNotEmpty && !_isInterrupted) {
+    while (_sentenceQueue.isNotEmpty && currentEpoch == _epoch) {
       final sentence = _sentenceQueue.removeFirst();
       onSentenceStarted?.call(sentence);
 
@@ -65,24 +77,34 @@ class TtsQueueManager {
         // If one chunk fails, proceed to next
       }
 
-      if (_isInterrupted) break;
+      if (currentEpoch != _epoch) break;
     }
 
-    _isProcessing = false;
+    if (currentEpoch == _epoch) {
+      _isProcessing = false;
+      _notifyFinished();
+    }
+  }
+
+  void _notifyFinished() {
     onQueueFinished?.call();
+    for (final listener in List<void Function()>.from(_finishedListeners)) {
+      listener();
+    }
   }
 
   /// Stops current audio playback immediately and empties the sentence queue
   /// (e.g., when the user begins speaking or presses the interrupt button).
   Future<void> stopAndClear() async {
-    _isInterrupted = true;
+    _epoch++;
     _sentenceQueue.clear();
     await _ttsService.stop();
     _isProcessing = false;
-    onQueueFinished?.call();
+    _notifyFinished();
   }
 
   void dispose() {
     stopAndClear();
+    _finishedListeners.clear();
   }
 }
