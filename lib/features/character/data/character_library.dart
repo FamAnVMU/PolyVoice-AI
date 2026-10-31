@@ -1,4 +1,3 @@
-import '../../voice/data/models/voice_configuration.dart';
 import '../../voice/data/preset_voices.dart';
 import 'models/ai_character_model.dart';
 

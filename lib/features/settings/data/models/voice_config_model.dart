@@ -16,6 +16,8 @@ class VoiceConfigModel extends Equatable {
   final String emotionPreset;
   final String elevenLabsApiKey;
 
+  String get activeVoiceId => selectedVoiceId;
+
   const VoiceConfigModel({
     this.pitch = AppConstants.defaultPitch,
     this.rate = AppConstants.defaultRate,
@@ -40,6 +42,7 @@ class VoiceConfigModel extends Equatable {
     String? voiceName,
     String? voiceLocale,
     String? selectedVoiceId,
+    String? activeVoiceId,
     double? emotion,
     double? stability,
     double? style,
@@ -54,7 +57,7 @@ class VoiceConfigModel extends Equatable {
       languageCode: languageCode ?? this.languageCode,
       voiceName: voiceName ?? this.voiceName,
       voiceLocale: voiceLocale ?? this.voiceLocale,
-      selectedVoiceId: selectedVoiceId ?? this.selectedVoiceId,
+      selectedVoiceId: selectedVoiceId ?? activeVoiceId ?? this.selectedVoiceId,
       emotion: emotion ?? this.emotion,
       stability: stability ?? this.stability,
       style: style ?? this.style,

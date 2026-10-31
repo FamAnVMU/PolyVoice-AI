@@ -4,13 +4,20 @@ class AppConstants {
 
   // LLM Providers
   static const String providerGemini = 'gemini';
+  static const String providerOpenAi = 'openai';
+  static const String providerAnthropic = 'anthropic';
   static const String providerGroq = 'groq';
   static const String providerOpenRouter = 'openrouter';
+  static const String providerLocal = 'local';
 
   // Default Models
-  static const String defaultGeminiModel = 'gemini-1.5-flash';
+  static const String defaultGeminiModel = 'gemini-2.5-flash';
+  static const String defaultOpenAiModel = 'gpt-4o-mini';
+  static const String defaultAnthropicModel = 'claude-3-5-sonnet-20241022';
   static const String defaultGroqModel = 'llama-3.3-70b-versatile';
   static const String defaultOpenRouterModel = 'meta-llama/llama-3.3-70b-instruct';
+  static const String defaultLocalModel = 'qwen2.5:1.5b';
+  static const String defaultLocalAiBaseUrl = 'http://localhost:11434';
 
   // STT Modes
   static const String sttModeOnDevice = 'on_device';
@@ -31,9 +38,14 @@ class AppConstants {
 
   // Storage Keys
   static const String keyGeminiApiKey = 'polyvoice_gemini_api_key';
+  static const String keyOpenAiApiKey = 'polyvoice_openai_api_key';
+  static const String keyAnthropicApiKey = 'polyvoice_anthropic_api_key';
   static const String keyGroqApiKey = 'polyvoice_groq_api_key';
   static const String keyOpenRouterApiKey = 'polyvoice_openrouter_api_key';
   static const String keyOpenRouterBaseUrl = 'polyvoice_openrouter_base_url';
+  static const String keyLocalAiBaseUrl = 'polyvoice_local_ai_base_url';
+  static const String keyLocalAiModel = 'polyvoice_local_ai_model';
+  static const String keyLocalAiMode = 'polyvoice_local_ai_mode';
   static const String keyElevenLabsApiKey = 'polyvoice_elevenlabs_api_key';
   static const String keyCustomVoices = 'polyvoice_custom_voices';
 

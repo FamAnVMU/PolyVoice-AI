@@ -54,8 +54,6 @@ class _CharacterEditorScreenState extends State<CharacterEditorScreen> {
   late double _pitch;
   late String _speakingStyle;
 
-  bool _isPlayingPreview = false;
-
   final List<String> _emojiChoices = [
     '🌸', '⚡', '🌿', '🏃', '📚', '📐', '🔬', '🌐', '💻', '📈',
     '💡', '👔', '📖', '⚔️', '🎤', '🕊️', '🌟', '🐱', '☕', '🧠',
@@ -74,20 +72,9 @@ class _CharacterEditorScreenState extends State<CharacterEditorScreen> {
     'Thực tế, dứt khoát',
   ];
 
-  final List<String> _presetPronouns = [
-    'Bạn - Mình',
-    'Em - Anh/Chị',
-    'Tôi - Bạn',
-    'Bác - Cháu',
-    'Thầy - Em',
-    'Bro - Mình',
-  ];
-
   @override
   void initState() {
     super.initState();
-
-    final target = widget.editingCharacter ?? widget.baseCharacter;
 
     if (widget.isCustomizingBase && widget.baseCharacter != null) {
       // Mode 1: Clone from Base Character

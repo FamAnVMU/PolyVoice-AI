@@ -6,7 +6,6 @@ import '../../../../services/pipeline/voice_pipeline_coordinator.dart';
 import '../../../../services/storage/chat_local_storage_service.dart';
 import '../../../character/data/character_library.dart';
 import '../../../character/data/models/ai_character_model.dart';
-import '../../../profile/data/models/user_profile_model.dart';
 import '../../../settings/data/models/persona_model.dart';
 import '../../../settings/presentation/bloc/settings_bloc.dart';
 import '../../data/models/chat_message.dart';

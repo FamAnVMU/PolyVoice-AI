@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
 import '../../core/errors/failures.dart';
-import '../../features/voice/data/models/voice_model.dart';
 
 class ElevenLabsService {
   final Dio _dio;

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:dio/dio.dart';
+import '../../core/constants/app_constants.dart';
 import '../../core/network/network_logger.dart';
 import '../../core/utils/sentence_chunker.dart';
 import '../../core/utils/stream_response_sanitizer.dart';
@@ -204,11 +205,19 @@ QUY TẮC PHẢN HỒI VÀ NGÔN NGỮ (BẮT BUỘC TUÂN THỦ CHẶT CHẼ):
   /// Resolves the API key corresponding to a given provider name.
   String _getApiKeyForProvider(String providerName, ApiKeysModel apiKeys) {
     switch (providerName) {
-      case 'groq':
+      case AppConstants.providerGroq:
         return apiKeys.groqKey.trim();
-      case 'openrouter':
+      case AppConstants.providerOpenRouter:
         return apiKeys.openRouterKey.trim();
-      case 'gemini':
+      case AppConstants.providerOpenAi:
+        return apiKeys.openAiKey.trim();
+      case AppConstants.providerAnthropic:
+        return apiKeys.anthropicKey.trim();
+      case AppConstants.providerLocal:
+        return apiKeys.localAiBaseUrl.trim().isNotEmpty
+            ? apiKeys.localAiBaseUrl.trim()
+            : AppConstants.defaultLocalAiBaseUrl;
+      case AppConstants.providerGemini:
       default:
         return apiKeys.geminiKey.trim();
     }
@@ -217,14 +226,19 @@ QUY TẮC PHẢN HỒI VÀ NGÔN NGỮ (BẮT BUỘC TUÂN THỦ CHẶT CHẼ):
   /// Builds an ordered list of fallback providers based on available keys.
   List<String> _buildFallbackCandidates(String primaryProvider, ApiKeysModel apiKeys) {
     final candidates = <String>[];
-    if (primaryProvider != 'groq' && apiKeys.groqKey.trim().isNotEmpty) {
-      candidates.add('groq');
+    void addIfAvailable(String provider, String key) {
+      if (primaryProvider != provider && key.trim().isNotEmpty) {
+        candidates.add(provider);
+      }
     }
-    if (primaryProvider != 'gemini' && apiKeys.geminiKey.trim().isNotEmpty) {
-      candidates.add('gemini');
-    }
-    if (primaryProvider != 'openrouter' && apiKeys.openRouterKey.trim().isNotEmpty) {
-      candidates.add('openrouter');
+
+    addIfAvailable(AppConstants.providerGroq, apiKeys.groqKey);
+    addIfAvailable(AppConstants.providerGemini, apiKeys.geminiKey);
+    addIfAvailable(AppConstants.providerOpenAi, apiKeys.openAiKey);
+    addIfAvailable(AppConstants.providerAnthropic, apiKeys.anthropicKey);
+    addIfAvailable(AppConstants.providerOpenRouter, apiKeys.openRouterKey);
+    if (primaryProvider != AppConstants.providerLocal && apiKeys.localAiBaseUrl.trim().isNotEmpty) {
+      candidates.add(AppConstants.providerLocal);
     }
     return candidates;
   }
@@ -337,6 +351,9 @@ QUY TẮC PHẢN HỒI VÀ NGÔN NGỮ (BẮT BUỘC TUÂN THỦ CHẶT CHẼ):
     }
 
     final provider = llmFactory.getProvider(currentProviderName);
+    final customUrl = currentProviderName == AppConstants.providerLocal
+        ? apiKeys.localAiBaseUrl
+        : apiKeys.openRouterBaseUrl;
 
     try {
       final tokenStream = provider.streamChat(
@@ -344,7 +361,7 @@ QUY TẮC PHẢN HỒI VÀ NGÔN NGỮ (BẮT BUỘC TUÂN THỦ CHẶT CHẼ):
         systemPrompt: systemPrompt,
         apiKey: currentApiKey,
         model: (currentProviderName == apiKeys.selectedProvider) ? apiKeys.selectedModel : null,
-        customBaseUrl: apiKeys.openRouterBaseUrl,
+        customBaseUrl: customUrl,
         cancelToken: _activeLlmCancelToken,
       );
 

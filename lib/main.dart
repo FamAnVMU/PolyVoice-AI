@@ -5,7 +5,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'core/theme/app_theme.dart';
 import 'features/chat/presentation/bloc/chat_bloc.dart';
 import 'features/chat/presentation/bloc/chat_event.dart';
-import 'features/chat/presentation/screens/chat_screen.dart';
 import 'features/navigation/presentation/screens/main_navigation_screen.dart';
 import 'features/settings/presentation/bloc/settings_bloc.dart';
 import 'features/settings/presentation/bloc/settings_event.dart';

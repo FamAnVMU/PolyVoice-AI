@@ -1,5 +1,3 @@
-import 'dart:async';
-
 /// Sanitizes streaming tokens from LLMs by:
 /// 1. Stripping hidden reasoning/thought blocks: <think>...</think>, <thought>...</thought>, etc.
 /// 2. Eliminating technical draft prefixes like "Draft response:", "Draft:", "Thinking:", etc.

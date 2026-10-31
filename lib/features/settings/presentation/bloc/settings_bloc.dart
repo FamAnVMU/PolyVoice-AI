@@ -34,6 +34,8 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
     on<LoadSettingsEvent>(_onLoadSettings);
     on<UpdateApiKeysEvent>(_onUpdateApiKeys);
     on<TestApiKeyConnectionEvent>(_onTestApiKeyConnection);
+    on<DeleteProviderKeyEvent>(_onDeleteProviderKey);
+    on<DismissApiNotificationEvent>(_onDismissApiNotification);
     on<SelectPersonaEvent>(_onSelectPersona);
     on<SaveCustomPersonaEvent>(_onSaveCustomPersona);
     on<DeleteCustomPersonaEvent>(_onDeleteCustomPersona);
@@ -45,6 +47,24 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
     on<ToggleThemeModeEvent>(_onToggleThemeMode);
   }
 
+  String _getProviderDisplayName(String provider) {
+    switch (provider) {
+      case AppConstants.providerOpenAi:
+        return 'OpenAI';
+      case AppConstants.providerAnthropic:
+        return 'Anthropic Claude';
+      case AppConstants.providerGroq:
+        return 'Groq Cloud';
+      case AppConstants.providerOpenRouter:
+        return 'OpenRouter';
+      case AppConstants.providerLocal:
+        return 'AI Local';
+      case AppConstants.providerGemini:
+      default:
+        return 'Google Gemini';
+    }
+  }
+
   Future<void> _onLoadSettings(
     LoadSettingsEvent event,
     Emitter<SettingsState> emit,
@@ -53,14 +73,28 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
 
     // Load API Keys from Secure Storage with SharedPreferences backup fallback
     String geminiKey = '';
+    String openAiKey = '';
+    String anthropicKey = '';
     String groqKey = '';
     String openRouterKey = '';
     String openRouterBaseUrl = 'https://openrouter.ai/api/v1';
+    String localAiBaseUrl = 'http://127.0.0.1:11434';
+    String localAiModel = AppConstants.defaultLocalModel;
 
     try {
       geminiKey = await secureStorage.getGeminiKey() ?? '';
       if (geminiKey.isEmpty) {
         geminiKey = prefs.getString('polyvoice_backup_gemini_key') ?? '';
+      }
+
+      openAiKey = await secureStorage.getOpenAiKey() ?? '';
+      if (openAiKey.isEmpty) {
+        openAiKey = prefs.getString('polyvoice_backup_openai_key') ?? '';
+      }
+
+      anthropicKey = await secureStorage.getAnthropicKey() ?? '';
+      if (anthropicKey.isEmpty) {
+        anthropicKey = prefs.getString('polyvoice_backup_anthropic_key') ?? '';
       }
 
       groqKey = await secureStorage.getGroqKey() ?? '';
@@ -76,6 +110,12 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
       openRouterBaseUrl = await secureStorage.getOpenRouterBaseUrl() ??
           prefs.getString(AppConstants.keyOpenRouterBaseUrl) ??
           'https://openrouter.ai/api/v1';
+
+      localAiBaseUrl = await secureStorage.getLocalAiBaseUrl() ??
+          prefs.getString(AppConstants.keyLocalAiBaseUrl) ??
+          'http://127.0.0.1:11434';
+
+      localAiModel = prefs.getString(AppConstants.keyLocalAiModel) ?? AppConstants.defaultLocalModel;
     } catch (_) {}
 
     final selectedProvider =
@@ -87,9 +127,13 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
 
     final apiKeys = ApiKeysModel(
       geminiKey: geminiKey,
+      openAiKey: openAiKey,
+      anthropicKey: anthropicKey,
       groqKey: groqKey,
       openRouterKey: openRouterKey,
       openRouterBaseUrl: openRouterBaseUrl,
+      localAiBaseUrl: localAiBaseUrl,
+      localAiModel: localAiModel,
       selectedProvider: selectedProvider,
       selectedModel: selectedModel,
       sttMode: sttMode,
@@ -163,6 +207,14 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
       await secureStorage.saveGeminiKey(keys.geminiKey);
       await prefs.setString('polyvoice_backup_gemini_key', keys.geminiKey);
     }
+    if (keys.openAiKey.isNotEmpty) {
+      await secureStorage.saveOpenAiKey(keys.openAiKey);
+      await prefs.setString('polyvoice_backup_openai_key', keys.openAiKey);
+    }
+    if (keys.anthropicKey.isNotEmpty) {
+      await secureStorage.saveAnthropicKey(keys.anthropicKey);
+      await prefs.setString('polyvoice_backup_anthropic_key', keys.anthropicKey);
+    }
     if (keys.groqKey.isNotEmpty) {
       await secureStorage.saveGroqKey(keys.groqKey);
       await prefs.setString('polyvoice_backup_groq_key', keys.groqKey);
@@ -175,47 +227,208 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
       await secureStorage.saveOpenRouterBaseUrl(keys.openRouterBaseUrl);
       await prefs.setString(AppConstants.keyOpenRouterBaseUrl, keys.openRouterBaseUrl);
     }
+    if (keys.localAiBaseUrl.isNotEmpty) {
+      await secureStorage.saveLocalAiBaseUrl(keys.localAiBaseUrl);
+      await prefs.setString(AppConstants.keyLocalAiBaseUrl, keys.localAiBaseUrl);
+    }
+    await prefs.setString(AppConstants.keyLocalAiModel, keys.localAiModel);
 
     // Save Provider Preferences
     await prefs.setString(AppConstants.keySelectedProvider, keys.selectedProvider);
     await prefs.setString(AppConstants.keySelectedModel, keys.selectedModel);
     await prefs.setString(AppConstants.keySttMode, keys.sttMode);
 
-    emit(state.copyWith(apiKeys: keys));
+    emit(state.copyWith(
+      apiKeys: keys,
+      activeNotification: ApiNotification(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        provider: keys.selectedProvider,
+        providerName: _getProviderDisplayName(keys.selectedProvider),
+        type: ApiNotificationType.success,
+        title: 'Đã lưu cấu hình an toàn',
+        message: 'Các API Key đã được mã hóa an toàn trên thiết bị (Zero Server Cost).',
+        timestamp: DateTime.now(),
+      ),
+    ));
+  }
+
+  Future<void> _onDeleteProviderKey(
+    DeleteProviderKeyEvent event,
+    Emitter<SettingsState> emit,
+  ) async {
+    final p = event.provider;
+    final displayName = _getProviderDisplayName(p);
+    ApiKeysModel updated = state.apiKeys;
+
+    if (p == AppConstants.providerGemini) {
+      await secureStorage.deleteGeminiKey();
+      await prefs.remove('polyvoice_backup_gemini_key');
+      updated = updated.copyWith(geminiKey: '');
+    } else if (p == AppConstants.providerOpenAi) {
+      await secureStorage.deleteOpenAiKey();
+      await prefs.remove('polyvoice_backup_openai_key');
+      updated = updated.copyWith(openAiKey: '');
+    } else if (p == AppConstants.providerAnthropic) {
+      await secureStorage.deleteAnthropicKey();
+      await prefs.remove('polyvoice_backup_anthropic_key');
+      updated = updated.copyWith(anthropicKey: '');
+    } else if (p == AppConstants.providerGroq) {
+      await secureStorage.deleteGroqKey();
+      await prefs.remove('polyvoice_backup_groq_key');
+      updated = updated.copyWith(groqKey: '');
+    } else if (p == AppConstants.providerOpenRouter) {
+      await secureStorage.deleteOpenRouterKey();
+      await prefs.remove('polyvoice_backup_openrouter_key');
+      updated = updated.copyWith(openRouterKey: '');
+    } else if (p == 'elevenlabs') {
+      await secureStorage.deleteElevenLabsKey();
+      await prefs.remove('polyvoice_backup_elevenlabs_key');
+      final updatedVoice = state.voiceConfig.copyWith(elevenLabsApiKey: '');
+      emit(state.copyWith(voiceConfig: updatedVoice));
+    }
+
+    final updatedStatuses = Map<String, ApiTestStatus>.from(state.providerTestStatus);
+    updatedStatuses.remove(p);
+    final updatedMessages = Map<String, String>.from(state.providerTestMessage);
+    updatedMessages.remove(p);
+
+    emit(state.copyWith(
+      apiKeys: updated,
+      providerTestStatus: updatedStatuses,
+      providerTestMessage: updatedMessages,
+      activeNotification: ApiNotification(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        provider: p,
+        providerName: displayName,
+        type: ApiNotificationType.warning,
+        title: 'Đã xóa API Key',
+        message: 'Khóa API của $displayName đã được xóa an toàn khỏi bộ nhớ thiết bị.',
+        timestamp: DateTime.now(),
+      ),
+    ));
+  }
+
+  void _onDismissApiNotification(
+    DismissApiNotificationEvent event,
+    Emitter<SettingsState> emit,
+  ) {
+    emit(state.copyWith(clearNotification: true));
   }
 
   Future<void> _onTestApiKeyConnection(
     TestApiKeyConnectionEvent event,
     Emitter<SettingsState> emit,
   ) async {
+    final p = event.provider;
+    final displayName = _getProviderDisplayName(p);
+    final modelName = event.model ?? 'Mặc định';
+
+    final updatedStatuses = Map<String, ApiTestStatus>.from(state.providerTestStatus);
+    final updatedMessages = Map<String, String>.from(state.providerTestMessage);
+
+    updatedStatuses[p] = ApiTestStatus.testing;
+    updatedMessages[p] = 'Đang kiểm tra kết nối...';
+
+    // 1. Emit instant checking floating notification
     emit(state.copyWith(
+      providerTestStatus: updatedStatuses,
+      providerTestMessage: updatedMessages,
       testStatus: ApiTestStatus.testing,
-      testResultMessage: 'Testing connection...',
+      testResultMessage: 'Đang kiểm tra $displayName...',
+      activeNotification: ApiNotification(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        provider: p,
+        providerName: displayName,
+        type: ApiNotificationType.checking,
+        title: 'Đang kiểm tra API...',
+        message: 'Đang gửi yêu cầu xác thực kết nối tới $displayName...',
+        modelTested: modelName,
+        timestamp: DateTime.now(),
+      ),
     ));
 
     try {
-      final provider = llmFactory.getProvider(event.provider);
-      final isSuccess = await provider.testConnection(
+      final providerService = llmFactory.getProvider(p);
+      final isSuccess = await providerService.testConnection(
         apiKey: event.apiKey,
         model: event.model,
         customBaseUrl: event.baseUrl,
       );
 
       if (isSuccess) {
+        updatedStatuses[p] = ApiTestStatus.success;
+        updatedMessages[p] = 'Kết nối thành công (Model: $modelName)';
+
         emit(state.copyWith(
+          providerTestStatus: updatedStatuses,
+          providerTestMessage: updatedMessages,
           testStatus: ApiTestStatus.success,
-          testResultMessage: '✓ Connected successfully! Key is valid.',
+          testResultMessage: '✓ Kết nối thành công! Khóa API của $displayName hợp lệ.',
+          activeNotification: ApiNotification(
+            id: DateTime.now().millisecondsSinceEpoch.toString(),
+            provider: p,
+            providerName: displayName,
+            type: ApiNotificationType.success,
+            title: 'Kết nối API thành công!',
+            message: 'Đã xác thực thành công với $displayName. Mô hình "$modelName" đã sẵn sàng phục vụ.',
+            modelTested: modelName,
+            timestamp: DateTime.now(),
+          ),
         ));
       } else {
+        updatedStatuses[p] = ApiTestStatus.failed;
+        updatedMessages[p] = 'Không thể xác thực phản hồi từ $displayName';
+
         emit(state.copyWith(
+          providerTestStatus: updatedStatuses,
+          providerTestMessage: updatedMessages,
           testStatus: ApiTestStatus.failed,
-          testResultMessage: '✗ Connection failed. Please check your key.',
+          testResultMessage: '✗ Kết nối thất bại. Vui lòng kiểm tra lại khóa API.',
+          activeNotification: ApiNotification(
+            id: DateTime.now().millisecondsSinceEpoch.toString(),
+            provider: p,
+            providerName: displayName,
+            type: ApiNotificationType.error,
+            title: 'Kết nối thất bại',
+            message: 'Không nhận được phản hồi hợp lệ từ máy chủ $displayName. Vui lòng kiểm tra lại API Key.',
+            modelTested: modelName,
+            timestamp: DateTime.now(),
+          ),
         ));
       }
     } catch (e) {
+      final errorStr = e.toString().replaceFirst('Exception: ', '').replaceFirst('Failure: ', '');
+      String cleanReason = errorStr;
+
+      // Extract specific friendly reasons
+      if (errorStr.contains('401') || errorStr.toLowerCase().contains('unauthorized') || errorStr.toLowerCase().contains('invalid')) {
+        cleanReason = 'Khóa API Key không hợp lệ hoặc đã hết hạn. Vui lòng kiểm tra lại ký tự API Key.';
+      } else if (errorStr.contains('429') || errorStr.toLowerCase().contains('quota') || errorStr.toLowerCase().contains('rate limit')) {
+        cleanReason = 'Tài khoản $displayName đã hết hạn mức credit (Quota) hoặc vượt giới hạn tần suất gửi.';
+      } else if (errorStr.contains('404') || errorStr.toLowerCase().contains('not found')) {
+        cleanReason = 'Mô hình "$modelName" không tồn tại hoặc tài khoản chưa có quyền truy cập.';
+      } else if (errorStr.toLowerCase().contains('timeout') || errorStr.toLowerCase().contains('network') || errorStr.toLowerCase().contains('kết nối')) {
+        cleanReason = 'Không thể kết nối đến máy chủ $displayName. Vui lòng kiểm tra kết nối mạng Internet.';
+      }
+
+      updatedStatuses[p] = ApiTestStatus.failed;
+      updatedMessages[p] = cleanReason;
+
       emit(state.copyWith(
+        providerTestStatus: updatedStatuses,
+        providerTestMessage: updatedMessages,
         testStatus: ApiTestStatus.failed,
-        testResultMessage: '✗ Error: $e',
+        testResultMessage: '✗ $cleanReason',
+        activeNotification: ApiNotification(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          provider: p,
+          providerName: displayName,
+          type: ApiNotificationType.error,
+          title: 'Kết nối $displayName thất bại',
+          message: cleanReason,
+          modelTested: modelName,
+          timestamp: DateTime.now(),
+        ),
       ));
     }
   }
@@ -226,24 +439,15 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
   ) async {
     await prefs.setString(AppConstants.keyActivePersonaId, event.persona.id);
 
-    // Automatically adapt voice pitch and speed to selected persona
     final updatedVoiceConfig = state.voiceConfig.copyWith(
       pitch: event.persona.defaultPitch,
       rate: event.persona.defaultRate,
       languageCode: event.persona.languageCode,
     );
 
-    await prefs.setString(
-        AppConstants.keyVoiceConfig, jsonEncode(updatedVoiceConfig.toJson()));
-
-    // Refresh voices for new language
-    final voices = await ttsService.getAvailableVoices(
-        filterLanguageCode: event.persona.languageCode);
-
     emit(state.copyWith(
       activePersona: event.persona,
       voiceConfig: updatedVoiceConfig,
-      availableVoices: voices,
     ));
   }
 
@@ -251,64 +455,55 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
     SaveCustomPersonaEvent event,
     Emitter<SettingsState> emit,
   ) async {
-    final List<PersonaModel> customOnly =
-        state.personas.where((p) => !p.isBuiltIn).toList();
+    final personas = List<PersonaModel>.from(state.personas);
+    final index = personas.indexWhere((p) => p.id == event.persona.id);
 
-    final existingIndex =
-        customOnly.indexWhere((p) => p.id == event.persona.id);
-    if (existingIndex >= 0) {
-      customOnly[existingIndex] = event.persona;
+    if (index >= 0) {
+      personas[index] = event.persona;
     } else {
-      customOnly.add(event.persona);
+      personas.add(event.persona);
     }
 
-    await prefs.setString(AppConstants.keyCustomPersonas,
-        jsonEncode(customOnly.map((p) => p.toJson()).toList()));
+    final customOnly = personas.where((p) => !p.isBuiltIn).toList();
+    final jsonStr = jsonEncode(customOnly.map((p) => p.toJson()).toList());
+    await prefs.setString(AppConstants.keyCustomPersonas, jsonStr);
 
-    final updatedAll = [...PersonaModel.defaultPresets, ...customOnly];
-    emit(state.copyWith(
-      personas: updatedAll,
-      activePersona: event.persona,
-    ));
+    emit(state.copyWith(personas: personas));
   }
 
   Future<void> _onDeleteCustomPersona(
     DeleteCustomPersonaEvent event,
     Emitter<SettingsState> emit,
   ) async {
-    final List<PersonaModel> customOnly = state.personas
-        .where((p) => !p.isBuiltIn && p.id != event.personaId)
-        .toList();
+    final personas = List<PersonaModel>.from(state.personas);
+    personas.removeWhere((p) => p.id == event.personaId && !p.isBuiltIn);
 
-    await prefs.setString(AppConstants.keyCustomPersonas,
-        jsonEncode(customOnly.map((p) => p.toJson()).toList()));
+    final customOnly = personas.where((p) => !p.isBuiltIn).toList();
+    final jsonStr = jsonEncode(customOnly.map((p) => p.toJson()).toList());
+    await prefs.setString(AppConstants.keyCustomPersonas, jsonStr);
 
-    final updatedAll = [...PersonaModel.defaultPresets, ...customOnly];
-    final active = state.activePersona.id == event.personaId
-        ? updatedAll.first
-        : state.activePersona;
+    PersonaModel active = state.activePersona;
+    if (active.id == event.personaId) {
+      active = personas.first;
+      await prefs.setString(AppConstants.keyActivePersonaId, active.id);
+    }
 
-    emit(state.copyWith(
-      personas: updatedAll,
-      activePersona: active,
-    ));
+    emit(state.copyWith(personas: personas, activePersona: active));
   }
 
   Future<void> _onUpdateVoiceConfig(
     UpdateVoiceConfigEvent event,
     Emitter<SettingsState> emit,
   ) async {
-    await prefs.setString(
-        AppConstants.keyVoiceConfig, jsonEncode(event.voiceConfig.toJson()));
+    final config = event.voiceConfig;
+    await prefs.setString(AppConstants.keyVoiceConfig, jsonEncode(config.toJson()));
 
-    if (event.voiceConfig.elevenLabsApiKey.isNotEmpty) {
-      await secureStorage.saveElevenLabsKey(event.voiceConfig.elevenLabsApiKey);
-      await prefs.setString('polyvoice_backup_elevenlabs_key', event.voiceConfig.elevenLabsApiKey);
+    if (config.elevenLabsApiKey.isNotEmpty) {
+      await secureStorage.saveElevenLabsKey(config.elevenLabsApiKey);
+      await prefs.setString('polyvoice_backup_elevenlabs_key', config.elevenLabsApiKey);
     }
 
-    await ttsService.configureVoice(event.voiceConfig);
-
-    emit(state.copyWith(voiceConfig: event.voiceConfig));
+    emit(state.copyWith(voiceConfig: config));
   }
 
   Future<void> _onLoadAvailableVoices(
@@ -316,7 +511,8 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
     Emitter<SettingsState> emit,
   ) async {
     final voices = await ttsService.getAvailableVoices(
-        filterLanguageCode: event.languageCode);
+      filterLanguageCode: event.languageCode,
+    );
     emit(state.copyWith(availableVoices: voices));
   }
 
@@ -325,8 +521,8 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
     Emitter<SettingsState> emit,
   ) async {
     await voiceStorage.saveCustomVoice(event.voice);
-    final updated = voiceStorage.loadCustomVoices();
-    emit(state.copyWith(customVoices: updated));
+    final customVoices = voiceStorage.loadCustomVoices();
+    emit(state.copyWith(customVoices: customVoices));
   }
 
   Future<void> _onDeleteCustomVoice(
@@ -334,20 +530,25 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
     Emitter<SettingsState> emit,
   ) async {
     await voiceStorage.deleteCustomVoice(event.voiceId);
-    final updated = voiceStorage.loadCustomVoices();
-    var cfg = state.voiceConfig;
-    if (cfg.selectedVoiceId == event.voiceId) {
-      cfg = cfg.copyWith(selectedVoiceId: AppConstants.defaultVoiceId);
-      await prefs.setString(AppConstants.keyVoiceConfig, jsonEncode(cfg.toJson()));
+    final customVoices = voiceStorage.loadCustomVoices();
+
+    String currentVoiceId = state.voiceConfig.activeVoiceId;
+    if (currentVoiceId == event.voiceId) {
+      currentVoiceId = AppConstants.defaultVoiceId;
+      final updated = state.voiceConfig.copyWith(activeVoiceId: currentVoiceId);
+      await prefs.setString(AppConstants.keyVoiceConfig, jsonEncode(updated.toJson()));
+      emit(state.copyWith(voiceConfig: updated, customVoices: customVoices));
+      return;
     }
-    emit(state.copyWith(customVoices: updated, voiceConfig: cfg));
+
+    emit(state.copyWith(customVoices: customVoices));
   }
 
   Future<void> _onSelectVoiceModel(
     SelectVoiceModelEvent event,
     Emitter<SettingsState> emit,
   ) async {
-    final updated = state.voiceConfig.copyWith(selectedVoiceId: event.voiceId);
+    final updated = state.voiceConfig.copyWith(activeVoiceId: event.voiceId);
     await prefs.setString(AppConstants.keyVoiceConfig, jsonEncode(updated.toJson()));
     emit(state.copyWith(voiceConfig: updated));
   }

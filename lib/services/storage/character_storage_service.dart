@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../core/constants/app_constants.dart';
 import '../../features/character/data/models/ai_character_model.dart';
 
 class CharacterStorageService {

@@ -294,6 +294,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   final charAvatar = active?.characterAvatar ?? defaultChar.avatar;
                   final voiceName = active?.voiceConfig?.voiceName ?? 'Giọng mặc định';
                   final provider = settingsState.apiKeys.selectedProvider.toUpperCase();
+                  final model = settingsState.apiKeys.selectedModel;
 
                   // Find full character if available
                   final matchedChar = chatState.allCharacters.firstWhere(
@@ -350,7 +351,7 @@ class _ChatScreenState extends State<ChatScreen> {
                                   const SizedBox(width: 5),
                                   Expanded(
                                     child: Text(
-                                      '🎙️ $voiceName • ${active != null && active.memoryNotes.isNotEmpty ? '🧠 ${active.memoryNotes.length} • ' : ''}$provider',
+                                      '🎙️ $voiceName • ${active != null && active.memoryNotes.isNotEmpty ? '🧠 ${active.memoryNotes.length} • ' : ''}$provider ($model)',
                                       style: const TextStyle(fontSize: 11, color: Colors.grey),
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
