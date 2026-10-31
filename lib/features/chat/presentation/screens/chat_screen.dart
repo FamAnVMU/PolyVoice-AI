@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../character/data/character_library.dart';
 import '../../../character/presentation/widgets/character_profile_dialog.dart';
+import '../../../settings/data/models/persona_model.dart';
 import '../../../settings/presentation/bloc/settings_bloc.dart';
 import '../../../settings/presentation/bloc/settings_state.dart';
 import '../../../settings/presentation/screens/settings_screen.dart';

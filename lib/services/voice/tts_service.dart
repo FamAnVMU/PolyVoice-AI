@@ -213,16 +213,17 @@ class TtsService {
 
     // 5. TIER 3: Google Gemini Studio Neural Audio (Studio-grade human realism)
     final cleanGeminiKey = (geminiApiKey ?? '').trim();
-    String? geminiVoice = activeVoice.remoteVoiceId;
+    String geminiVoice = isMale ? 'Charon' : 'Aoede';
+    final candidateVoice = activeVoice.remoteVoiceId;
 
     // Enforce matching gender for Gemini Prebuilt voices
     if (isMale) {
-      if (geminiVoice != 'Charon' && geminiVoice != 'Puck' && geminiVoice != 'Fenrir') {
-        geminiVoice = 'Charon';
+      if (candidateVoice == 'Charon' || candidateVoice == 'Puck' || candidateVoice == 'Fenrir') {
+        geminiVoice = candidateVoice!;
       }
     } else {
-      if (geminiVoice != 'Aoede' && geminiVoice != 'Kore') {
-        geminiVoice = 'Aoede';
+      if (candidateVoice == 'Aoede' || candidateVoice == 'Kore') {
+        geminiVoice = candidateVoice!;
       }
     }
 

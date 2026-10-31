@@ -440,21 +440,29 @@ class CharacterLibrary {
   }
 
   static List<AICharacterModel> getByCategory(String category, {List<AICharacterModel>? customCharacters}) {
-    final combined = [...allCharacters, ...(customCharacters ?? [])];
+    final List<AICharacterModel> combined = [
+      ...allCharacters,
+      if (customCharacters != null) ...customCharacters,
+    ];
     if (category == 'all') return combined;
     return combined.where((c) => c.category == category).toList();
   }
 
   static List<AICharacterModel> getFeatured({List<AICharacterModel>? customCharacters}) {
-    final combined = [...allCharacters, ...(customCharacters ?? [])];
+    final List<AICharacterModel> combined = [
+      ...allCharacters,
+      if (customCharacters != null) ...customCharacters,
+    ];
     return combined.where((c) => c.isFeatured).toList();
   }
 
   static List<AICharacterModel> getFeaturedCharacters({List<AICharacterModel>? customCharacters}) =>
       getFeatured(customCharacters: customCharacters);
 
-  static List<AICharacterModel> getAllCharacters({List<AICharacterModel>? customCharacters}) =>
-      [...allCharacters, ...(customCharacters ?? [])];
+  static List<AICharacterModel> getAllCharacters({List<AICharacterModel>? customCharacters}) => [
+        ...allCharacters,
+        if (customCharacters != null) ...customCharacters,
+      ];
 
   /// Audits all built-in characters to ensure 100% voice validity and gender matching.
   static List<String> auditCharacterVoices() {

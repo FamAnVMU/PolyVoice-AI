@@ -9,20 +9,28 @@ import '../../../settings/presentation/bloc/settings_bloc.dart';
 import '../../../voice/data/models/voice_configuration.dart';
 import '../../../voice/data/models/voice_model.dart';
 import '../../../voice/data/preset_voices.dart';
-import '../models/ai_character_model.dart';
+import '../../data/models/ai_character_model.dart';
+
+enum CharacterEditorMode {
+  customizeBase,
+  createScratch,
+  editCustom,
+}
 
 class CharacterEditorScreen extends StatefulWidget {
   final AICharacterModel? baseCharacter;
   final AICharacterModel? editingCharacter;
+  final CharacterEditorMode mode;
 
   const CharacterEditorScreen({
     super.key,
     this.baseCharacter,
     this.editingCharacter,
+    this.mode = CharacterEditorMode.createScratch,
   });
 
-  bool get isCustomizingBase => baseCharacter != null;
-  bool get isEditingExisting => editingCharacter != null && editingCharacter!.isCustom;
+  bool get isCustomizingBase => mode == CharacterEditorMode.customizeBase || baseCharacter != null;
+  bool get isEditingExisting => mode == CharacterEditorMode.editCustom || (editingCharacter != null && editingCharacter!.isCustom);
 
   @override
   State<CharacterEditorScreen> createState() => _CharacterEditorScreenState();

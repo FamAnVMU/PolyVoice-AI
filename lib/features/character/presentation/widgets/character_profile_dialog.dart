@@ -5,7 +5,7 @@ import '../../../chat/presentation/bloc/chat_bloc.dart';
 import '../../../chat/presentation/bloc/chat_event.dart';
 import '../../../chat/presentation/screens/chat_screen.dart';
 import '../../../settings/presentation/bloc/settings_bloc.dart';
-import '../models/ai_character_model.dart';
+import '../../data/models/ai_character_model.dart';
 import '../screens/character_editor_screen.dart';
 
 class CharacterProfileDialog extends StatelessWidget {
@@ -348,7 +348,10 @@ class CharacterProfileDialog extends StatelessWidget {
                   Navigator.of(context).pop();
                   Navigator.of(context).push(
                     MaterialPageRoute(
-                      builder: (_) => CharacterEditorScreen(baseCharacter: character),
+                      builder: (_) => CharacterEditorScreen(
+                        baseCharacter: character,
+                        mode: CharacterEditorMode.customizeBase,
+                      ),
                     ),
                   );
                 },
@@ -372,7 +375,10 @@ class CharacterProfileDialog extends StatelessWidget {
                         Navigator.of(context).pop();
                         Navigator.of(context).push(
                           MaterialPageRoute(
-                            builder: (_) => CharacterEditorScreen(editingCharacter: character),
+                            builder: (_) => CharacterEditorScreen(
+                              editingCharacter: character,
+                              mode: CharacterEditorMode.editCustom,
+                            ),
                           ),
                         );
                       },
