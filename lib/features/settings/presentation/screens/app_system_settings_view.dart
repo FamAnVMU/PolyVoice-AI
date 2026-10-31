@@ -118,7 +118,7 @@ class AppSystemSettingsView extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text('Phiên bản', style: TextStyle(fontSize: 13, color: textSecondary)),
-                        const Text('v1.2.0+9 (Production)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.primaryLight)),
+                        const Text('v1.3.1+11 (Production)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.primaryLight)),
                       ],
                     ),
                     const Divider(height: 20),
