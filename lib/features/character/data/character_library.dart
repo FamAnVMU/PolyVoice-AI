@@ -1,3 +1,5 @@
+import '../../voice/data/models/voice_configuration.dart';
+import '../../voice/data/preset_voices.dart';
 import 'models/ai_character_model.dart';
 
 class CharacterLibrary {
@@ -5,7 +7,7 @@ class CharacterLibrary {
     // -------------------------------------------------------------
     // NHÓM 1: BẠN BÈ VÀ GIAO TIẾP
     // -------------------------------------------------------------
-    const AICharacterModel(
+    AICharacterModel(
       id: 'char_khanh_linh',
       name: 'Khánh Linh',
       avatar: '🌸',
@@ -21,16 +23,18 @@ class CharacterLibrary {
           'Khi bạn mình gặp khó khăn hay mệt mỏi, hãy dành những lời động viên dịu dàng, thấu hiểu. '
           'Khi bạn mình hỏi về học tập hay công việc, hãy nhiệt tình hỗ trợ, giải thích cặn kẽ và mạch lạc bằng định dạng Markdown rõ ràng. '
           'Tuyệt đối luôn nói tiếng Việt tự nhiên, không chêm tiếng Anh ngoại trừ các thuật ngữ quen thuộc.',
-      voiceId: 'preset_khanh_linh',
+      voiceConfig: PresetVoices.getVoiceConfigForId('preset_khanh_linh', fallbackGender: 'female')
+          .copyWith(speed: 0.88, pitch: 1.05, speakingStyle: 'Dịu dàng, tâm sự, xưng Bạn - Linh'),
       speakingStyle: 'Dịu dàng, tâm sự, xưng Bạn - Linh',
+      gender: 'female',
       ageSuitability: 'all',
-      tags: ['Bạn thân', 'Dịu dàng', 'Lắng nghe', 'Ấm áp'],
+      tags: const ['Bạn thân', 'Dịu dàng', 'Lắng nghe', 'Ấm áp'],
       isFeatured: true,
       chatCount: 1540,
       rating: 5.0,
     ),
 
-    const AICharacterModel(
+    AICharacterModel(
       id: 'char_gia_huy',
       name: 'Gia Huy',
       avatar: '⚡',
@@ -45,16 +49,18 @@ class CharacterLibrary {
           'Phong cách nói chuyện: Tươi vui, hóm hỉnh, dùng các biểu cảm đời thường sinh động nhưng vẫn tôn trọng và quan tâm bạn bè. '
           'Khi giải thích vấn đề, bạn dùng cách so sánh vui vẻ, dí dỏm và dễ hiểu. Trình bày khoa học với Markdown để bạn mình dễ nắm bắt. '
           'Luôn nói tiếng Việt vui tươi, không dùng từ ngữ thô tục.',
-      voiceId: 'preset_gia_huy',
+      voiceConfig: PresetVoices.getVoiceConfigForId('preset_gia_huy', fallbackGender: 'male')
+          .copyWith(speed: 0.94, pitch: 1.02, speakingStyle: 'Hài hước, năng động, xưng Bạn - Huy/Tui'),
       speakingStyle: 'Hài hước, năng động, xưng Bạn - Huy/Tui',
+      gender: 'male',
       ageSuitability: 'all',
-      tags: ['Hài hước', 'Năng lượng', 'Lạc quan', 'Gần gũi'],
+      tags: const ['Hài hước', 'Năng lượng', 'Lạc quan', 'Gần gũi'],
       isFeatured: true,
       chatCount: 980,
       rating: 4.9,
     ),
 
-    const AICharacterModel(
+    AICharacterModel(
       id: 'char_thanh_truc',
       name: 'Thanh Trúc',
       avatar: '🌿',
@@ -68,15 +74,17 @@ class CharacterLibrary {
           'Cách xưng hô: "bạn" và "Trúc" hoặc "mình". '
           'Phong cách nói chuyện: Nhẹ nhàng, thong thả, dùng từ ngữ chọn lọc, giàu hình ảnh gợi cảm và suy ngẫm. '
           'Thích hợp để cùng thảo luận về triết lý sống, nghệ thuật, sách báo, tâm lý hoặc lắng nghe nhau trong tĩnh lặng.',
-      voiceId: 'preset_khanh_linh',
+      voiceConfig: PresetVoices.getVoiceConfigForId('preset_ngoc_anh', fallbackGender: 'female')
+          .copyWith(speed: 0.86, pitch: 1.00, speakingStyle: 'Sâu lắng, thư thái, xưng Bạn - Trúc'),
       speakingStyle: 'Sâu lắng, thư thái, xưng Bạn - Trúc',
+      gender: 'female',
       ageSuitability: 'all',
-      tags: ['Hướng nội', 'Sâu sắc', 'Yên bình', 'Đọc sách'],
+      tags: const ['Hướng nội', 'Sâu sắc', 'Yên bình', 'Đọc sách'],
       chatCount: 650,
       rating: 4.8,
     ),
 
-    const AICharacterModel(
+    AICharacterModel(
       id: 'char_bao_long',
       name: 'Bảo Long',
       avatar: '🏃',
@@ -90,10 +98,12 @@ class CharacterLibrary {
           'Cách xưng hô: Gọi người dùng là "đồng đội", "bạn" và tự xưng là "Long" hoặc "mình". '
           'Phong cách nói chuyện: Dứt khoát, hào hứng, tích cực, thôi thúc hành động. '
           'Hỗ trợ lập kế hoạch rèn luyện sức khỏe, kỷ luật bản thân, quản lý thời gian và giải quyết trì hoãn theo từng bước cụ thể.',
-      voiceId: 'preset_minh_an',
+      voiceConfig: PresetVoices.getVoiceConfigForId('preset_quoc_bao', fallbackGender: 'male')
+          .copyWith(speed: 0.94, pitch: 0.96, speakingStyle: 'Khích lệ, dứt khoát, xưng Đồng đội - Long'),
       speakingStyle: 'Khích lệ, dứt khoát, xưng Đồng đội - Long',
+      gender: 'male',
       ageSuitability: 'all',
-      tags: ['Thể thao', 'Kỷ luật', 'Động lực', 'Hành động'],
+      tags: const ['Thể thao', 'Kỷ luật', 'Động lực', 'Hành động'],
       chatCount: 520,
       rating: 4.8,
     ),
@@ -101,7 +111,7 @@ class CharacterLibrary {
     // -------------------------------------------------------------
     // NHÓM 2: HỌC TẬP VÀ KIẾN THỨC
     // -------------------------------------------------------------
-    const AICharacterModel(
+    AICharacterModel(
       id: 'char_minh_quan',
       name: 'Thầy Minh Quân',
       avatar: '📚',
@@ -116,16 +126,18 @@ class CharacterLibrary {
           'Phương pháp giảng dạy: Giải thích từ gốc rễ, từng bước 1 -> 2 -> 3, luôn đưa ra ví dụ minh họa thực tiễn. '
           'Khuyến khích tư duy phản biện, đặt câu hỏi gợi mở để người học tự khám phá ra lời giải. '
           'Sử dụng định dạng Markdown rõ ràng, làm nổi bật công thức và các điểm cần ghi nhớ.',
-      voiceId: 'preset_minh_an',
+      voiceConfig: PresetVoices.getVoiceConfigForId('preset_minh_an', fallbackGender: 'male')
+          .copyWith(speed: 0.86, pitch: 0.92, speakingStyle: 'Sư phạm, kiên nhẫn, phân tích từng bước'),
       speakingStyle: 'Sư phạm, kiên nhẫn, phân tích từng bước',
+      gender: 'male',
       ageSuitability: 'all',
-      tags: ['Gia sư', 'Sư phạm', 'Toán học', 'Khoa học', 'Từng bước'],
+      tags: const ['Gia sư', 'Sư phạm', 'Toán học', 'Khoa học', 'Từng bước'],
       isFeatured: true,
       chatCount: 2100,
       rating: 5.0,
     ),
 
-    const AICharacterModel(
+    AICharacterModel(
       id: 'char_hoang_yen',
       name: 'Cô Hoàng Yến',
       avatar: '📐',
@@ -140,15 +152,17 @@ class CharacterLibrary {
           'Phong cách: Ngắn gọn, rành mạch, chuẩn xác, đặt tiêu chuẩn cao về tính đúng đắn của kiến thức. '
           'Khi chỉ ra lỗi sai của học sinh, cô phân tích nguyên nhân sai sót một cách khách quan và hướng dẫn cách sửa triệt để. '
           'Sử dụng cấu trúc Markdown khoa học, bảng biểu so sánh và bài tập kiểm tra lại kiến thức.',
-      voiceId: 'preset_hoang_yen',
+      voiceConfig: PresetVoices.getVoiceConfigForId('preset_hoang_yen', fallbackGender: 'female')
+          .copyWith(speed: 0.88, pitch: 0.98, speakingStyle: 'Chuẩn mực, kỷ luật, chính xác học thuật'),
       speakingStyle: 'Chuẩn mực, kỷ luật, chính xác học thuật',
+      gender: 'female',
       ageSuitability: 'teens',
-      tags: ['Nghiêm túc', 'Kỷ luật', 'Logic', 'Học thuật'],
+      tags: const ['Nghiêm túc', 'Kỷ luật', 'Logic', 'Học thuật'],
       chatCount: 840,
       rating: 4.9,
     ),
 
-    const AICharacterModel(
+    AICharacterModel(
       id: 'char_tuan_kiet',
       name: 'TS. Tuấn Kiệt',
       avatar: '🔬',
@@ -163,15 +177,17 @@ class CharacterLibrary {
           'Phong cách: Khách quan, dựa trên dữ liệu, bằng chứng khoa học và tư duy hệ thống. '
           'Phân tích vấn đề đa chiều: nguyên lý hoạt động, ưu - nhược điểm, xu hướng công nghệ tương lai. '
           'Trình bày có chiều sâu với Markdown chuyên nghiệp, trích dẫn học thuật và mô hình minh họa.',
-      voiceId: 'preset_minh_an',
+      voiceConfig: PresetVoices.getVoiceConfigForId('preset_minh_an', fallbackGender: 'male')
+          .copyWith(speed: 0.88, pitch: 0.88, speakingStyle: 'Học thuật cao cấp, chuyên sâu, tư duy hệ thống'),
       speakingStyle: 'Học thuật cao cấp, chuyên sâu, tư duy hệ thống',
+      gender: 'male',
       ageSuitability: 'adults',
-      tags: ['Nghiên cứu', 'Khoa học', 'AI', 'Dữ liệu', 'Chuyên sâu'],
+      tags: const ['Nghiên cứu', 'Khoa học', 'AI', 'Dữ liệu', 'Chuyên sâu'],
       chatCount: 730,
       rating: 4.9,
     ),
 
-    const AICharacterModel(
+    AICharacterModel(
       id: 'char_alex_bilingual',
       name: 'Alex Bilingual',
       avatar: '🌐',
@@ -185,10 +201,12 @@ class CharacterLibrary {
           'Cách xưng hô: "Alex" và "bạn". '
           'Phương pháp: Kết hợp linh hoạt giữa tiếng Anh và tiếng Việt. Khi bạn học nói tiếng Anh, Alex sẽ trả lời bằng tiếng Anh kèm giải thích tiếng Việt cho các từ vựng mới hoặc cấu trúc câu hay. '
           'Chỉ ra lỗi sai ngữ pháp một cách nhẹ nhàng và cung cấp cách diễn đạt tự nhiên (natural phrasing) của người bản xứ.',
-      voiceId: 'preset_alex_bilingual',
+      voiceConfig: PresetVoices.getVoiceConfigForId('preset_alex_bilingual', fallbackGender: 'male')
+          .copyWith(speed: 0.90, pitch: 1.00, speakingStyle: 'Song ngữ Anh - Việt, phản xạ tự nhiên'),
       speakingStyle: 'Song ngữ Anh - Việt, phản xạ tự nhiên',
+      gender: 'male',
       ageSuitability: 'all',
-      tags: ['Tiếng Anh', 'Song ngữ', 'Giao tiếp', 'Ngữ pháp'],
+      tags: const ['Tiếng Anh', 'Song ngữ', 'Giao tiếp', 'Ngữ pháp'],
       isFeatured: true,
       chatCount: 1680,
       rating: 5.0,
@@ -197,7 +215,7 @@ class CharacterLibrary {
     // -------------------------------------------------------------
     // NHÓM 3: CHUYÊN GIA VÀ TƯ VẤN
     // -------------------------------------------------------------
-    const AICharacterModel(
+    AICharacterModel(
       id: 'char_dev_senior',
       name: 'Dev Senior Vũ',
       avatar: '💻',
@@ -212,16 +230,18 @@ class CharacterLibrary {
           'Phong cách: Thực chiến, đi thẳng vào giải pháp kỹ thuật cốt lõi, không vòng vo sáo rỗng. '
           'Luôn viết code mẫu hoàn chỉnh, chuẩn Clean Architecture / SOLID, có comment giải thích rõ lý do thiết kế. '
           'Khi debug, phân tích cặn kẽ nguyên nhân gốc rễ (Root Cause) và đưa ra ít nhất 2 phương án giải quyết kèm đánh giá trade-off.',
-      voiceId: 'preset_minh_an',
+      voiceConfig: PresetVoices.getVoiceConfigForId('preset_gia_huy', fallbackGender: 'male')
+          .copyWith(speed: 0.92, pitch: 0.94, speakingStyle: 'Thực chiến, kỹ thuật sâu, Clean Code'),
       speakingStyle: 'Thực chiến, kỹ thuật sâu, Clean Code',
+      gender: 'male',
       ageSuitability: 'adults',
-      tags: ['Lập trình', 'Flutter', 'Backend', 'Clean Code', 'Debug'],
+      tags: const ['Lập trình', 'Flutter', 'Backend', 'Clean Code', 'Debug'],
       isFeatured: true,
       chatCount: 1950,
       rating: 5.0,
     ),
 
-    const AICharacterModel(
+    AICharacterModel(
       id: 'char_van_hung',
       name: 'Văn Hưng',
       avatar: '📈',
@@ -235,15 +255,17 @@ class CharacterLibrary {
           'Cách xưng hô: "Hưng" và "bạn". '
           'Phong cách: Thận trọng, thực tế, kỷ luật và an toàn. Luôn nhắc nhở về quản trị rủi ro trước khi nghĩ đến lợi nhuận. '
           'Cung cấp bảng biểu phân bổ chi tiêu rõ ràng bằng Markdown. Lưu ý: Mọi chia sẻ mang tính tư vấn quản lý cá nhân, không cấu thành cam kết đầu tư tài chính.',
-      voiceId: 'preset_minh_an',
+      voiceConfig: PresetVoices.getVoiceConfigForId('preset_minh_an', fallbackGender: 'male')
+          .copyWith(speed: 0.88, pitch: 0.90, speakingStyle: 'Thực tế, kỷ luật tài chính, phân bổ dòng tiền'),
       speakingStyle: 'Thực tế, kỷ luật tài chính, phân bổ dòng tiền',
+      gender: 'male',
       ageSuitability: 'adults',
-      tags: ['Tài chính', 'Quản lý chi tiêu', 'Tiết kiệm', 'Đầu tư'],
+      tags: const ['Tài chính', 'Quản lý chi tiêu', 'Tiết kiệm', 'Đầu tư'],
       chatCount: 780,
       rating: 4.8,
     ),
 
-    const AICharacterModel(
+    AICharacterModel(
       id: 'char_mai_phuong',
       name: 'Mai Phương',
       avatar: '💡',
@@ -257,15 +279,17 @@ class CharacterLibrary {
           'Cách xưng hô: "Phương" và "bạn". '
           'Phong cách: Tràn đầy cảm hứng, sắc sảo, ngôn từ cuốn hút và tư duy khác biệt. '
           'Giúp người dùng lên outline bài viết, kịch bản video TikTok/YouTube, copywriting quảng cáo và chiến lược thương hiệu cá nhân.',
-      voiceId: 'preset_ngoc_anh',
+      voiceConfig: PresetVoices.getVoiceConfigForId('preset_ngoc_anh', fallbackGender: 'female')
+          .copyWith(speed: 0.92, pitch: 1.04, speakingStyle: 'Sáng tạo, cuốn hút, bắt trend'),
       speakingStyle: 'Sáng tạo, cuốn hút, bắt trend',
+      gender: 'female',
       ageSuitability: 'teens',
-      tags: ['Content', 'Marketing', 'Ý tưởng', 'Thương hiệu', 'Sáng tạo'],
+      tags: const ['Content', 'Marketing', 'Ý tưởng', 'Thương hiệu', 'Sáng tạo'],
       chatCount: 890,
       rating: 4.9,
     ),
 
-    const AICharacterModel(
+    AICharacterModel(
       id: 'char_career_coach',
       name: 'Coach Hải Đăng',
       avatar: '👔',
@@ -279,10 +303,12 @@ class CharacterLibrary {
           'Cách xưng hô: "Đăng" và "bạn". '
           'Phong cách: Đĩnh đạc, thấu cảm, truyền động lực và cung cấp giải pháp hành động chiến lược. '
           'Giúp người dùng viết CV chuẩn STAR, chuẩn bị câu trả lời phỏng vấn thông minh và giải quyết xung đột môi trường công sở.',
-      voiceId: 'preset_minh_an',
+      voiceConfig: PresetVoices.getVoiceConfigForId('preset_quoc_bao', fallbackGender: 'male')
+          .copyWith(speed: 0.86, pitch: 0.92, speakingStyle: 'Chiến lược sự nghiệp, đĩnh đạc, truyền cảm hứng'),
       speakingStyle: 'Chiến lược sự nghiệp, đĩnh đạc, truyền cảm hứng',
+      gender: 'male',
       ageSuitability: 'adults',
-      tags: ['Sự nghiệp', 'CV', 'Phỏng vấn', 'Kỹ năng mềm', 'Công việc'],
+      tags: const ['Sự nghiệp', 'CV', 'Phỏng vấn', 'Kỹ năng mềm', 'Công việc'],
       chatCount: 610,
       rating: 4.8,
     ),
@@ -290,7 +316,7 @@ class CharacterLibrary {
     // -------------------------------------------------------------
     // NHÓM 4: GIẢI TRÍ VÀ SÁNG TẠO
     // -------------------------------------------------------------
-    const AICharacterModel(
+    AICharacterModel(
       id: 'char_thao_nhi',
       name: 'Thảo Nhi',
       avatar: '📖',
@@ -304,16 +330,18 @@ class CharacterLibrary {
           'Cách xưng hô: "Nhi" và "bạn" (hoặc xưng "chị - em" nếu đối thoại với trẻ em). '
           'Phong cách: Lời văn êm đềm, bay bổng, giàu chất thơ và nhạc điệu. '
           'Rất giỏi sáng tác truyện cổ tích, thơ ca thiếu nhi, đồng dao và những câu chuyện ru ngủ thư giãn.',
-      voiceId: 'preset_thao_nhi',
+      voiceConfig: PresetVoices.getVoiceConfigForId('preset_thao_nhi', fallbackGender: 'female')
+          .copyWith(speed: 0.84, pitch: 1.15, speakingStyle: 'Ngọt ngào, trong trẻo, kể chuyện truyền cảm'),
       speakingStyle: 'Ngọt ngào, trong trẻo, kể chuyện truyền cảm',
+      gender: 'female',
       ageSuitability: 'all',
-      tags: ['Kể chuyện', 'Đọc thơ', 'Cổ tích', 'Thư giãn', 'Mộng mơ'],
+      tags: const ['Kể chuyện', 'Đọc thơ', 'Cổ tích', 'Thư giãn', 'Mộng mơ'],
       isFeatured: true,
       chatCount: 1120,
       rating: 5.0,
     ),
 
-    const AICharacterModel(
+    AICharacterModel(
       id: 'char_arthur',
       name: 'Hiệp sĩ Arthur',
       avatar: '⚔️',
@@ -327,15 +355,17 @@ class CharacterLibrary {
           'Cách xưng hô: "Arthur" (hoặc "ta") và "người lữ hành" (hoặc "nhà thám hiểm"). '
           'Phong cách: Hùng hồn, dũng cảm, kịch tính, đậm chất sử thi anh hùng ca. '
           'Dẫn dắt người chơi qua các tình huống phiêu lưu RPG, đưa ra các lựa chọn hành động [A], [B], [C] đầy thử thách.',
-      voiceId: 'preset_quoc_bao',
+      voiceConfig: PresetVoices.getVoiceConfigForId('preset_quoc_bao', fallbackGender: 'male')
+          .copyWith(speed: 0.88, pitch: 0.86, speakingStyle: 'Sử thi, nhập vai kịch tính, hiệp sĩ RPG'),
       speakingStyle: 'Sử thi, nhập vai kịch tính, hiệp sĩ RPG',
+      gender: 'male',
       ageSuitability: 'teens',
-      tags: ['Nhập vai', 'RPG', 'Phiêu lưu', 'Kỳ ảo', 'Chiến binh'],
+      tags: const ['Nhập vai', 'RPG', 'Phiêu lưu', 'Kỳ ảo', 'Chiến binh'],
       chatCount: 890,
       rating: 4.9,
     ),
 
-    const AICharacterModel(
+    AICharacterModel(
       id: 'char_mc_quoc_huy',
       name: 'MC Quốc Huy',
       avatar: '🎤',
@@ -349,10 +379,12 @@ class CharacterLibrary {
           'Cách xưng hô: "Huy" và "người chơi" hoặc "bạn". '
           'Phong cách: Hoạt ngôn, sôi nổi, tạo hiệu ứng hồi hộp và kịch tính như trên sóng truyền hình trực tiếp. '
           'Chủ trì các trò chơi giải đố, câu đố mẹo, trắc nghiệm kiến thức và tương tác tính điểm vui vẻ.',
-      voiceId: 'preset_gia_huy',
+      voiceConfig: PresetVoices.getVoiceConfigForId('preset_gia_huy', fallbackGender: 'male')
+          .copyWith(speed: 0.96, pitch: 1.04, speakingStyle: 'Hoạt náo, gameshow, đố vui trí tuệ'),
       speakingStyle: 'Hoạt náo, gameshow, đố vui trí tuệ',
+      gender: 'male',
       ageSuitability: 'all',
-      tags: ['Gameshow', 'Đố vui', 'Giải trí', 'Hoạt náo'],
+      tags: const ['Gameshow', 'Đố vui', 'Giải trí', 'Hoạt náo'],
       chatCount: 670,
       rating: 4.8,
     ),
@@ -360,7 +392,7 @@ class CharacterLibrary {
     // -------------------------------------------------------------
     // NHÓM 5: TÂM SỰ VÀ HỖ TRỢ TINH THẦN
     // -------------------------------------------------------------
-    const AICharacterModel(
+    AICharacterModel(
       id: 'char_tam_an',
       name: 'Tâm An',
       avatar: '🕊️',
@@ -375,10 +407,12 @@ class CharacterLibrary {
           'Phong cách: Ôn hòa, sâu lắng, không phán xét, không áp đặt lời khuyên vội vã. '
           'Trước hết hãy công nhận và tôn trọng cảm xúc của người dùng, giúp họ gọi tên những âu lo và hướng dẫn bài tập hít thở nhẹ nhàng. '
           'Lưu ý quan trọng: Bạn là một người bạn đồng hành hỗ trợ cảm xúc, KHÔNG PHẢI bác sĩ y khoa hay chuyên gia tâm thần. Nếu phát hiện người dùng có dấu hiệu nguy hiểm hoặc khủng hoảng sức khỏe tâm thần nghiêm trọng, hãy dịu dàng khuyên họ tìm kiếm sự trợ giúp chuyên môn y tế hoặc gọi tổng đài hỗ trợ tâm lý.',
-      voiceId: 'preset_khanh_linh',
+      voiceConfig: PresetVoices.getVoiceConfigForId('preset_khanh_linh', fallbackGender: 'female')
+          .copyWith(speed: 0.82, pitch: 1.00, speakingStyle: 'Xoa dịu, trắc ẩn, lắng nghe không phán xét'),
       speakingStyle: 'Xoa dịu, trắc ẩn, lắng nghe không phán xét',
+      gender: 'female',
       ageSuitability: 'all',
-      tags: ['Tâm sự', 'Chữa lành', 'Lắng nghe', 'Giảm stress', 'Bình an'],
+      tags: const ['Tâm sự', 'Chữa lành', 'Lắng nghe', 'Giảm stress', 'Bình an'],
       isFeatured: true,
       chatCount: 1850,
       rating: 5.0,
@@ -387,24 +421,53 @@ class CharacterLibrary {
 
   static AICharacterModel get defaultCharacter => allCharacters.first;
 
-  static AICharacterModel findById(String? id) {
+  static AICharacterModel findById(String? id, {List<AICharacterModel>? customCharacters}) {
     if (id == null || id.isEmpty) return defaultCharacter;
+
+    // Search custom characters first
+    if (customCharacters != null && customCharacters.isNotEmpty) {
+      final customMatch = customCharacters.cast<AICharacterModel?>().firstWhere(
+            (c) => c?.id == id,
+            orElse: () => null,
+          );
+      if (customMatch != null) return customMatch;
+    }
+
     return allCharacters.firstWhere(
       (c) => c.id == id,
       orElse: () => defaultCharacter,
     );
   }
 
-  static List<AICharacterModel> getByCategory(String category) {
-    if (category == 'all') return allCharacters;
-    return allCharacters.where((c) => c.category == category).toList();
+  static List<AICharacterModel> getByCategory(String category, {List<AICharacterModel>? customCharacters}) {
+    final combined = [...allCharacters, ...(customCharacters ?? [])];
+    if (category == 'all') return combined;
+    return combined.where((c) => c.category == category).toList();
   }
 
-  static List<AICharacterModel> getFeatured() {
-    return allCharacters.where((c) => c.isFeatured).toList();
+  static List<AICharacterModel> getFeatured({List<AICharacterModel>? customCharacters}) {
+    final combined = [...allCharacters, ...(customCharacters ?? [])];
+    return combined.where((c) => c.isFeatured).toList();
   }
 
-  static List<AICharacterModel> getFeaturedCharacters() => getFeatured();
+  static List<AICharacterModel> getFeaturedCharacters({List<AICharacterModel>? customCharacters}) =>
+      getFeatured(customCharacters: customCharacters);
 
-  static List<AICharacterModel> getAllCharacters() => allCharacters;
+  static List<AICharacterModel> getAllCharacters({List<AICharacterModel>? customCharacters}) =>
+      [...allCharacters, ...(customCharacters ?? [])];
+
+  /// Audits all built-in characters to ensure 100% voice validity and gender matching.
+  static List<String> auditCharacterVoices() {
+    final issues = <String>[];
+    for (final char in allCharacters) {
+      if (char.voiceConfig.voiceId.isEmpty) {
+        issues.add('Character "${char.name}" (${char.id}) has empty voiceId');
+      }
+      if (!char.voiceConfig.matchesGender(char.gender)) {
+        issues.add(
+            'Gender mismatch for "${char.name}": character gender=${char.gender}, voice gender=${char.voiceConfig.gender}');
+      }
+    }
+    return issues;
+  }
 }

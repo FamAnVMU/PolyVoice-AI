@@ -1,14 +1,18 @@
 import 'package:equatable/equatable.dart';
+import '../../../character/data/character_library.dart';
+import '../../../voice/data/models/voice_configuration.dart';
+import '../../../voice/data/preset_voices.dart';
 import 'chat_message.dart';
 
 class ChatSession extends Equatable {
   final String id;
   final String title;
   final String characterId;
+  final String? customCharacterId;
   final String characterName;
   final String characterAvatar;
   final String systemPrompt;
-  final String voiceId;
+  final VoiceConfiguration voiceConfig;
   final bool isPinned;
   final bool isArchived;
   final List<String> memoryNotes;
@@ -16,14 +20,18 @@ class ChatSession extends Equatable {
   final DateTime updatedAt;
   final List<ChatMessage> messages;
 
+  // Compatibility getter
+  String get voiceId => voiceConfig.voiceId;
+
   const ChatSession({
     required this.id,
     required this.title,
     this.characterId = 'char_khanh_linh',
+    this.customCharacterId,
     this.characterName = 'Khánh Linh',
     this.characterAvatar = '🌸',
     this.systemPrompt = '',
-    this.voiceId = 'preset_khanh_linh',
+    required this.voiceConfig,
     this.isPinned = false,
     this.isArchived = false,
     this.memoryNotes = const [],
@@ -36,10 +44,11 @@ class ChatSession extends Equatable {
     String? id,
     String? title,
     String? characterId,
+    String? customCharacterId,
     String? characterName,
     String? characterAvatar,
     String? systemPrompt,
-    String? voiceId,
+    VoiceConfiguration? voiceConfig,
     bool? isPinned,
     bool? isArchived,
     List<String>? memoryNotes,
@@ -51,10 +60,11 @@ class ChatSession extends Equatable {
       id: id ?? this.id,
       title: title ?? this.title,
       characterId: characterId ?? this.characterId,
+      customCharacterId: customCharacterId ?? this.customCharacterId,
       characterName: characterName ?? this.characterName,
       characterAvatar: characterAvatar ?? this.characterAvatar,
       systemPrompt: systemPrompt ?? this.systemPrompt,
-      voiceId: voiceId ?? this.voiceId,
+      voiceConfig: voiceConfig ?? this.voiceConfig,
       isPinned: isPinned ?? this.isPinned,
       isArchived: isArchived ?? this.isArchived,
       memoryNotes: memoryNotes ?? this.memoryNotes,
@@ -69,10 +79,12 @@ class ChatSession extends Equatable {
       'id': id,
       'title': title,
       'characterId': characterId,
+      'customCharacterId': customCharacterId,
       'characterName': characterName,
       'characterAvatar': characterAvatar,
       'systemPrompt': systemPrompt,
-      'voiceId': voiceId,
+      'voiceConfig': voiceConfig.toJson(),
+      'voiceId': voiceConfig.voiceId,
       'isPinned': isPinned,
       'isArchived': isArchived,
       'memoryNotes': memoryNotes,
@@ -83,15 +95,33 @@ class ChatSession extends Equatable {
   }
 
   factory ChatSession.fromJson(Map<String, dynamic> json) {
+    final charId = json['characterId'] as String? ?? 'char_khanh_linh';
+    final charName = json['characterName'] as String? ?? 'Khánh Linh';
+    final charAvatar = json['characterAvatar'] as String? ?? '🌸';
+
+    // Automatic migration for voiceConfig
+    VoiceConfiguration resolvedVoiceConfig;
+    if (json['voiceConfig'] != null && json['voiceConfig'] is Map<String, dynamic>) {
+      resolvedVoiceConfig = VoiceConfiguration.fromJson(json['voiceConfig'] as Map<String, dynamic>);
+    } else {
+      // Find character in CharacterLibrary to inherit exact voiceConfig
+      final matchedChar = CharacterLibrary.findById(charId);
+      final legacyVoiceId = json['voiceId'] as String? ?? matchedChar.voiceConfig.voiceId;
+      resolvedVoiceConfig = PresetVoices.getVoiceConfigForId(
+        legacyVoiceId,
+        fallbackGender: matchedChar.gender,
+      );
+    }
+
     return ChatSession(
       id: json['id'] as String,
       title: json['title'] as String? ?? 'Cuộc trò chuyện',
-      // Automatic migration: Preserve old sessions and assign default character without data loss
-      characterId: json['characterId'] as String? ?? 'char_khanh_linh',
-      characterName: json['characterName'] as String? ?? 'Khánh Linh',
-      characterAvatar: json['characterAvatar'] as String? ?? '🌸',
+      characterId: charId,
+      customCharacterId: json['customCharacterId'] as String?,
+      characterName: charName,
+      characterAvatar: charAvatar,
       systemPrompt: json['systemPrompt'] as String? ?? '',
-      voiceId: json['voiceId'] as String? ?? 'preset_khanh_linh',
+      voiceConfig: resolvedVoiceConfig,
       isPinned: json['isPinned'] as bool? ?? false,
       isArchived: json['isArchived'] as bool? ?? false,
       memoryNotes: (json['memoryNotes'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? const [],
@@ -109,10 +139,11 @@ class ChatSession extends Equatable {
         id,
         title,
         characterId,
+        customCharacterId,
         characterName,
         characterAvatar,
         systemPrompt,
-        voiceId,
+        voiceConfig,
         isPinned,
         isArchived,
         memoryNotes,

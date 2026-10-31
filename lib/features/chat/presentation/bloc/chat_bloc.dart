@@ -12,11 +12,14 @@ import '../../../settings/presentation/bloc/settings_bloc.dart';
 import '../../data/models/chat_message.dart';
 import '../../data/models/chat_session.dart';
 import 'chat_event.dart';
+import '../../../../services/storage/character_storage_service.dart';
+import '../../../../features/voice/data/preset_voices.dart';
 import 'chat_state.dart';
 
 class ChatBloc extends Bloc<ChatEvent, ChatState> {
   final VoicePipelineCoordinator coordinator;
   final ChatLocalStorageService storageService;
+  final CharacterStorageService characterStorage;
   final SettingsBloc settingsBloc;
   final MemoryExtractorService _memoryExtractor;
 
@@ -31,9 +34,14 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     required this.coordinator,
     required this.storageService,
     required this.settingsBloc,
-  })  : _memoryExtractor = MemoryExtractorService(coordinator.llmFactory),
+    CharacterStorageService? characterStorageService,
+  })  : characterStorage = characterStorageService ?? CharacterStorageService(storageService.prefs),
+        _memoryExtractor = MemoryExtractorService(coordinator.llmFactory),
         super(const ChatState()) {
     on<LoadChatHistoryEvent>(_onLoadChatHistory);
+    on<LoadCustomCharactersEvent>(_onLoadCustomCharacters);
+    on<SaveCustomCharacterEvent>(_onSaveCustomCharacter);
+    on<DeleteCustomCharacterEvent>(_onDeleteCustomCharacter);
     on<SwitchSessionEvent>(_onSwitchSession);
     on<CreateSessionWithCharacterEvent>(_onCreateSessionWithCharacter);
     on<DeleteSessionEvent>(_onDeleteSession);
@@ -90,6 +98,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     Emitter<ChatState> emit,
   ) async {
     final userProfile = storageService.loadUserProfile();
+    final customChars = characterStorage.loadCustomCharacters();
     final sessions = storageService.loadSessions();
 
     if (sessions.isNotEmpty) {
@@ -97,6 +106,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       emit(state.copyWith(
         allSessions: sessions,
         activeSession: _currentSession,
+        customCharacters: customChars,
         messages: _currentSession!.messages,
         userProfile: userProfile,
       ));
@@ -110,10 +120,37 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       emit(state.copyWith(
         allSessions: initialSessions,
         activeSession: _currentSession,
+        customCharacters: customChars,
         messages: _currentSession!.messages,
         userProfile: userProfile,
       ));
     }
+  }
+
+  Future<void> _onLoadCustomCharacters(
+    LoadCustomCharactersEvent event,
+    Emitter<ChatState> emit,
+  ) async {
+    final list = characterStorage.loadCustomCharacters();
+    emit(state.copyWith(customCharacters: list));
+  }
+
+  Future<void> _onSaveCustomCharacter(
+    SaveCustomCharacterEvent event,
+    Emitter<ChatState> emit,
+  ) async {
+    await characterStorage.saveCustomCharacter(event.character);
+    final list = characterStorage.loadCustomCharacters();
+    emit(state.copyWith(customCharacters: list));
+  }
+
+  Future<void> _onDeleteCustomCharacter(
+    DeleteCustomCharacterEvent event,
+    Emitter<ChatState> emit,
+  ) async {
+    await characterStorage.deleteCustomCharacter(event.characterId);
+    final list = characterStorage.loadCustomCharacters();
+    emit(state.copyWith(customCharacters: list));
   }
 
   void _initNewSessionWithCharacter(AICharacterModel character) {
@@ -123,10 +160,11 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
       characterId: character.id,
+      customCharacterId: character.isCustom ? character.id : null,
       characterName: character.name,
       characterAvatar: character.avatar,
       systemPrompt: character.systemPrompt,
-      voiceId: character.voiceId,
+      voiceConfig: character.voiceConfig,
       messages: [
         ChatMessage(
           id: const Uuid().v4(),
@@ -364,10 +402,13 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
 
     final settings = settingsBloc.state;
     // Bind character voice if specified
+    final charVoice = _currentSession?.voiceConfig;
     var effectiveVoiceConfig = settings.voiceConfig;
-    if (_currentSession?.voiceId != null && _currentSession!.voiceId!.isNotEmpty) {
+    if (charVoice != null) {
       effectiveVoiceConfig = effectiveVoiceConfig.copyWith(
-        selectedVoiceId: _currentSession!.voiceId,
+        selectedVoiceId: charVoice.voiceId,
+        rate: charVoice.speed,
+        pitch: charVoice.pitch,
       );
     }
 
@@ -378,6 +419,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         apiKeys: settings.apiKeys,
         persona: sessionPersona,
         voiceConfig: effectiveVoiceConfig,
+        characterVoiceConfig: charVoice,
         enableVoicePlayback: event.enableVoicePlayback,
       );
     } catch (e) {
@@ -495,13 +537,24 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       activeSpeakingMessageId: event.messageId,
     ));
 
-    var voiceConfig = settingsBloc.state.voiceConfig;
-    if (_currentSession?.voiceId != null && _currentSession!.voiceId!.isNotEmpty) {
-      voiceConfig = voiceConfig.copyWith(selectedVoiceId: _currentSession!.voiceId);
+    final settings = settingsBloc.state;
+    final charVoice = _currentSession?.voiceConfig;
+    var voiceConfig = settings.voiceConfig;
+    if (charVoice != null) {
+      voiceConfig = voiceConfig.copyWith(
+        selectedVoiceId: charVoice.voiceId,
+        rate: charVoice.speed,
+        pitch: charVoice.pitch,
+      );
     }
 
     await coordinator.ttsQueueManager.stopAndClear();
-    coordinator.ttsQueueManager.enqueue(event.text, voiceConfig);
+    coordinator.ttsQueueManager.enqueue(
+      event.text,
+      voiceConfig,
+      voiceConfig: charVoice,
+      geminiApiKey: settings.apiKeys.geminiKey,
+    );
 
     coordinator.ttsQueueManager.onQueueFinished = () {
       add(StopTtsPlaybackEvent());
@@ -540,9 +593,14 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
 
     final settings = settingsBloc.state;
     final sessionPersona = _buildSessionPersona();
+    final charVoice = _currentSession?.voiceConfig;
     var voiceConfig = settings.voiceConfig;
-    if (_currentSession?.voiceId != null && _currentSession!.voiceId!.isNotEmpty) {
-      voiceConfig = voiceConfig.copyWith(selectedVoiceId: _currentSession!.voiceId);
+    if (charVoice != null) {
+      voiceConfig = voiceConfig.copyWith(
+        selectedVoiceId: charVoice.voiceId,
+        rate: charVoice.speed,
+        pitch: charVoice.pitch,
+      );
     }
 
     try {
@@ -551,6 +609,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         apiKeys: settings.apiKeys,
         persona: sessionPersona,
         voiceConfig: voiceConfig,
+        characterVoiceConfig: charVoice,
         fallbackTranscript: preview,
       );
     } catch (e) {

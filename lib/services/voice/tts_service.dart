@@ -4,6 +4,7 @@ import '../../core/constants/app_constants.dart';
 import '../../core/errors/failures.dart';
 import '../../core/utils/vietnamese_text_normalizer.dart';
 import '../../features/settings/data/models/voice_config_model.dart';
+import '../../features/voice/data/models/voice_configuration.dart';
 import '../../features/voice/data/models/voice_model.dart';
 import '../../features/voice/data/preset_voices.dart';
 import 'edge_tts_service.dart';
@@ -99,10 +100,12 @@ class TtsService {
   /// Speaks text with Vietnamese human-like normalization and multi-tier voice engine routing.
   /// Tier 1: ElevenLabs Voice Cloning (if custom voice configured with ElevenLabs key)
   /// Tier 2: Gemini Studio Neural Audio (ultra-realistic human intonation via existing Gemini key)
-  /// Tier 3: Enhanced Local Device Engine (native Android neural voice with conversational pacing)
+  /// Speaks text with Vietnamese human-like normalization and multi-tier voice engine routing.
+  /// Strict gender validation ensures female never plays male and male never plays female.
   Future<void> speak(
     String rawText, {
     VoiceConfigModel? config,
+    VoiceConfiguration? voiceConfig,
     VoiceModel? voice,
     List<VoiceModel>? customVoices,
     String? geminiApiKey,
@@ -112,18 +115,29 @@ class TtsService {
 
     final effectiveConfig = config ?? const VoiceConfigModel();
 
-    // 1. Resolve active VoiceModel
+    // 1. Resolve target gender & active VoiceModel
+    final targetGender = voiceConfig?.gender ?? voice?.gender ?? 'female';
     VoiceModel? activeVoice = voice;
+
     if (activeVoice == null) {
-      final voiceId = effectiveConfig.selectedVoiceId;
+      final targetVoiceId = voiceConfig?.voiceId ?? effectiveConfig.selectedVoiceId;
+
+      // Look in custom voices first
       if (customVoices != null && customVoices.isNotEmpty) {
         activeVoice = customVoices.cast<VoiceModel?>().firstWhere(
-              (v) => v?.id == voiceId,
+              (v) => v?.id == targetVoiceId,
               orElse: () => null,
             );
       }
-      activeVoice ??= PresetVoices.findById(voiceId);
+
+      // Look in verified presets with gender guarantee
+      activeVoice ??= PresetVoices.findVoiceSafe(targetVoiceId, fallbackGender: targetGender);
     }
+
+    // Double check gender guarantee: never let male speak female or female speak male
+    final bool isMale = targetGender == 'male';
+    final double effectiveSpeed = voiceConfig?.speed ?? effectiveConfig.rate;
+    final double effectivePitch = voiceConfig?.pitch ?? effectiveConfig.pitch;
 
     // 2. Normalize text into natural spoken Vietnamese with emotion-aware prosody
     final normalizedText = VietnameseTextNormalizer.normalize(
@@ -161,7 +175,7 @@ class TtsService {
           },
         );
         return;
-      } catch (e) {
+      } catch (_) {
         // Fallback transparently to next tier (Edge-TTS)
       }
     }
@@ -169,16 +183,16 @@ class TtsService {
     // 4. TIER 2: Microsoft Edge Neural TTS (100% Free, TV Broadcaster Natural Speech)
     if (effectiveConfig.voiceEngine != AppConstants.voiceEngineDevice) {
       try {
-        final edgeVoice = activeVoice.edgeVoiceName ??
-            (activeVoice.gender == 'male' ? 'vi-VN-NamMinhNeural' : 'vi-VN-HoaiMyNeural');
+        // Enforce strict gender voice name
+        final edgeVoice = isMale ? 'vi-VN-NamMinhNeural' : 'vi-VN-HoaiMyNeural';
 
         final audioPath = await _edgeTtsService.synthesizeSpeech(
           text: normalizedText,
           voiceName: edgeVoice,
-          rate: effectiveConfig.rate,
-          pitch: effectiveConfig.pitch,
+          rate: effectiveSpeed,
+          pitch: effectivePitch,
           volume: effectiveConfig.volume,
-          gender: activeVoice.gender,
+          gender: isMale ? 'male' : 'female',
         ).timeout(const Duration(milliseconds: 2500));
 
         await _nativeMediaService.playAudio(
@@ -199,20 +213,28 @@ class TtsService {
 
     // 5. TIER 3: Google Gemini Studio Neural Audio (Studio-grade human realism)
     final cleanGeminiKey = (geminiApiKey ?? '').trim();
-    final isGeminiPrebuilt = activeVoice.remoteVoiceId != null &&
-        ['Aoede', 'Kore', 'Puck', 'Charon', 'Fenrir'].contains(activeVoice.remoteVoiceId);
+    String? geminiVoice = activeVoice.remoteVoiceId;
 
-    if (cleanGeminiKey.isNotEmpty &&
-        isGeminiPrebuilt &&
-        effectiveConfig.voiceEngine != AppConstants.voiceEngineDevice) {
+    // Enforce matching gender for Gemini Prebuilt voices
+    if (isMale) {
+      if (geminiVoice != 'Charon' && geminiVoice != 'Puck' && geminiVoice != 'Fenrir') {
+        geminiVoice = 'Charon';
+      }
+    } else {
+      if (geminiVoice != 'Aoede' && geminiVoice != 'Kore') {
+        geminiVoice = 'Aoede';
+      }
+    }
+
+    if (cleanGeminiKey.isNotEmpty && effectiveConfig.voiceEngine != AppConstants.voiceEngineDevice) {
       try {
         final audioPath = await _geminiTtsService.synthesizeSpeech(
           text: normalizedText,
-          voiceName: activeVoice.remoteVoiceId!,
+          voiceName: geminiVoice,
           apiKey: cleanGeminiKey,
           emotion: effectiveConfig.emotionPreset,
-          speed: effectiveConfig.rate,
-          pitch: effectiveConfig.pitch,
+          speed: effectiveSpeed,
+          pitch: effectivePitch,
         );
 
         await _nativeMediaService.playAudio(

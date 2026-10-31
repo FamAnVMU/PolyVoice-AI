@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../services/pipeline/voice_pipeline_coordinator.dart';
 import '../../../chat/presentation/bloc/chat_bloc.dart';
+import '../../../settings/data/models/persona_model.dart';
 import '../../../settings/presentation/bloc/settings_bloc.dart';
 import '../../../settings/presentation/bloc/settings_state.dart';
 import '../widgets/live_transcript_overlay.dart';
@@ -105,12 +106,38 @@ class _ContinuousVoiceScreenState extends State<ContinuousVoiceScreen> {
   void _stopListeningAndSend() {
     final settings = context.read<SettingsBloc>().state;
     final chatBloc = context.read<ChatBloc>();
+    final activeSession = chatBloc.state.activeSession;
+
+    final charVoice = activeSession?.voiceConfig;
+    var effectiveVoiceConfig = settings.voiceConfig;
+    if (charVoice != null) {
+      effectiveVoiceConfig = effectiveVoiceConfig.copyWith(
+        selectedVoiceId: charVoice.voiceId,
+        rate: charVoice.speed,
+        pitch: charVoice.pitch,
+      );
+    }
+
+    final persona = PersonaModel(
+      id: activeSession?.characterId ?? 'default',
+      name: activeSession?.characterName ?? 'AI Assistant',
+      description: 'Nhân cách AI chuyên biệt',
+      avatarEmoji: activeSession?.characterAvatar ?? '🌸',
+      systemPrompt: (activeSession?.systemPrompt != null && activeSession!.systemPrompt.isNotEmpty)
+          ? activeSession.systemPrompt
+          : settings.activePersona.systemPrompt,
+      defaultPitch: charVoice?.pitch ?? 1.0,
+      defaultRate: charVoice?.speed ?? 1.0,
+      languageCode: charVoice?.languageCode ?? 'vi-VN',
+      isBuiltIn: false,
+    );
 
     _coordinator.stopListeningAndProcess(
       conversationHistory: chatBloc.state.messages,
       apiKeys: settings.apiKeys,
-      persona: settings.activePersona,
-      voiceConfig: settings.voiceConfig,
+      persona: persona,
+      voiceConfig: effectiveVoiceConfig,
+      characterVoiceConfig: charVoice,
       fallbackTranscript: _userTranscript,
     );
   }
@@ -142,16 +169,20 @@ class _ContinuousVoiceScreenState extends State<ContinuousVoiceScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final chatState = context.watch<ChatBloc>().state;
+    final activeSession = chatState.activeSession;
+    final charName = activeSession?.characterName ?? 'AI Assistant';
+    final charAvatar = activeSession?.characterAvatar ?? '🌸';
+    final voiceName = activeSession?.voiceConfig.voiceName ?? 'Mặc định';
+
     return Scaffold(
       backgroundColor: AppColors.darkBackground,
       body: SafeArea(
         child: BlocBuilder<SettingsBloc, SettingsState>(
           builder: (context, settingsState) {
-            final persona = settingsState.activePersona;
-
             return Column(
               children: [
-                // Header Bar
+                // Header Bar showing current active Character & Voice info
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   child: Row(
@@ -163,7 +194,7 @@ class _ContinuousVoiceScreenState extends State<ContinuousVoiceScreen> {
                           shape: BoxShape.circle,
                           border: Border.all(color: AppColors.darkCardBorder),
                         ),
-                        child: Text(persona.avatarEmoji, style: const TextStyle(fontSize: 22)),
+                        child: Text(charAvatar, style: const TextStyle(fontSize: 22)),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -171,23 +202,39 @@ class _ContinuousVoiceScreenState extends State<ContinuousVoiceScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              persona.name,
+                              charName,
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.bold,
                                 fontSize: 16,
                               ),
                             ),
-                            Text(
-                              '${settingsState.apiKeys.selectedProvider.toUpperCase()} • Live Voice Mode',
-                              style: const TextStyle(color: Colors.grey, fontSize: 12),
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primary.withOpacity(0.2),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    '🎤 $voiceName',
+                                    style: const TextStyle(color: AppColors.primaryLight, fontSize: 11),
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  '• ${settingsState.apiKeys.selectedProvider.toUpperCase()}',
+                                  style: const TextStyle(color: Colors.grey, fontSize: 11),
+                                ),
+                              ],
                             ),
                           ],
                         ),
                       ),
                       IconButton(
                         icon: const Icon(Icons.arrow_downward, color: Colors.white70),
-                        tooltip: 'Return to Chat View',
+                        tooltip: 'Quay lại tin nhắn',
                         onPressed: () => Navigator.pop(context),
                       ),
                     ],
@@ -210,7 +257,7 @@ class _ContinuousVoiceScreenState extends State<ContinuousVoiceScreen> {
                 LiveTranscriptOverlay(
                   userTranscript: _userTranscript,
                   aiResponse: _aiResponse,
-                  personaName: persona.name,
+                  personaName: charName,
                 ),
 
                 const SizedBox(height: 16),

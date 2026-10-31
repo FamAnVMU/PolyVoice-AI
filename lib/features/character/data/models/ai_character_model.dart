@@ -1,8 +1,10 @@
 import 'package:equatable/equatable.dart';
 import '../../../settings/data/models/persona_model.dart';
+import '../../../voice/data/models/voice_configuration.dart';
+import '../../../voice/data/preset_voices.dart';
 
 /// Represents a distinct AI Persona Character with its own identity, personality,
-/// prompt instructions, voice binding, and age suitability.
+/// prompt instructions, dedicated voice binding, and age suitability.
 class AICharacterModel extends Equatable {
   final String id;
   final String name;
@@ -12,14 +14,22 @@ class AICharacterModel extends Equatable {
   final String detailedBio;
   final String sampleGreeting;
   final String systemPrompt;
-  final String voiceId; // Preset voice ID (e.g. preset_khanh_linh, preset_ngoc_anh, preset_minh_an)
+  final VoiceConfiguration voiceConfig;
   final String speakingStyle;
+  final String gender; // 'female' | 'male' | 'neutral'
   final String ageSuitability; // 'all' | 'kids' | 'teens' | 'adults'
   final List<String> tags;
   final bool isFeatured;
   final bool isFavorite;
+  final bool isCustom; // True if user-created or user-customized
+  final String? baseCharacterId; // Null if original or from scratch; non-null if customized from base
   final int chatCount;
   final double rating;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
+
+  // Compatibility getter for legacy callers
+  String get voiceId => voiceConfig.voiceId;
 
   const AICharacterModel({
     required this.id,
@@ -30,14 +40,19 @@ class AICharacterModel extends Equatable {
     required this.detailedBio,
     required this.sampleGreeting,
     required this.systemPrompt,
-    this.voiceId = 'preset_khanh_linh',
+    required this.voiceConfig,
     this.speakingStyle = 'Thân thiện, gần gũi',
+    this.gender = 'female',
     this.ageSuitability = 'all',
     this.tags = const [],
     this.isFeatured = false,
     this.isFavorite = false,
+    this.isCustom = false,
+    this.baseCharacterId,
     this.chatCount = 120,
     this.rating = 4.9,
+    this.createdAt,
+    this.updatedAt,
   });
 
   AICharacterModel copyWith({
@@ -49,14 +64,19 @@ class AICharacterModel extends Equatable {
     String? detailedBio,
     String? sampleGreeting,
     String? systemPrompt,
-    String? voiceId,
+    VoiceConfiguration? voiceConfig,
     String? speakingStyle,
+    String? gender,
     String? ageSuitability,
     List<String>? tags,
     bool? isFeatured,
     bool? isFavorite,
+    bool? isCustom,
+    String? baseCharacterId,
     int? chatCount,
     double? rating,
+    DateTime? createdAt,
+    DateTime? updatedAt,
   }) {
     return AICharacterModel(
       id: id ?? this.id,
@@ -67,14 +87,19 @@ class AICharacterModel extends Equatable {
       detailedBio: detailedBio ?? this.detailedBio,
       sampleGreeting: sampleGreeting ?? this.sampleGreeting,
       systemPrompt: systemPrompt ?? this.systemPrompt,
-      voiceId: voiceId ?? this.voiceId,
+      voiceConfig: voiceConfig ?? this.voiceConfig,
       speakingStyle: speakingStyle ?? this.speakingStyle,
+      gender: gender ?? this.gender,
       ageSuitability: ageSuitability ?? this.ageSuitability,
       tags: tags ?? this.tags,
       isFeatured: isFeatured ?? this.isFeatured,
       isFavorite: isFavorite ?? this.isFavorite,
+      isCustom: isCustom ?? this.isCustom,
+      baseCharacterId: baseCharacterId ?? this.baseCharacterId,
       chatCount: chatCount ?? this.chatCount,
       rating: rating ?? this.rating,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
     );
   }
 
@@ -88,18 +113,38 @@ class AICharacterModel extends Equatable {
       'detailedBio': detailedBio,
       'sampleGreeting': sampleGreeting,
       'systemPrompt': systemPrompt,
-      'voiceId': voiceId,
+      'voiceConfig': voiceConfig.toJson(),
+      'voiceId': voiceConfig.voiceId, // Legacy backward compatibility
       'speakingStyle': speakingStyle,
+      'gender': gender,
       'ageSuitability': ageSuitability,
       'tags': tags,
       'isFeatured': isFeatured,
       'isFavorite': isFavorite,
+      'isCustom': isCustom,
+      'baseCharacterId': baseCharacterId,
       'chatCount': chatCount,
       'rating': rating,
+      'createdAt': createdAt?.toIso8601String(),
+      'updatedAt': updatedAt?.toIso8601String(),
     };
   }
 
   factory AICharacterModel.fromJson(Map<String, dynamic> json) {
+    final rawGender = json['gender'] as String? ?? 'female';
+
+    // Resolve VoiceConfiguration with fallback to preset voice by ID or gender
+    VoiceConfiguration resolvedVoiceConfig;
+    if (json['voiceConfig'] != null && json['voiceConfig'] is Map<String, dynamic>) {
+      resolvedVoiceConfig = VoiceConfiguration.fromJson(json['voiceConfig'] as Map<String, dynamic>);
+    } else {
+      final legacyVoiceId = json['voiceId'] as String? ?? '';
+      resolvedVoiceConfig = PresetVoices.getVoiceConfigForId(
+        legacyVoiceId,
+        fallbackGender: rawGender,
+      );
+    }
+
     return AICharacterModel(
       id: json['id'] as String,
       name: json['name'] as String,
@@ -109,14 +154,19 @@ class AICharacterModel extends Equatable {
       detailedBio: json['detailedBio'] as String? ?? '',
       sampleGreeting: json['sampleGreeting'] as String? ?? 'Xin chào bạn! Mình có thể hỗ trợ gì cho bạn hôm nay?',
       systemPrompt: json['systemPrompt'] as String,
-      voiceId: json['voiceId'] as String? ?? 'preset_khanh_linh',
+      voiceConfig: resolvedVoiceConfig,
       speakingStyle: json['speakingStyle'] as String? ?? 'Thân thiện, gần gũi',
+      gender: rawGender,
       ageSuitability: json['ageSuitability'] as String? ?? 'all',
       tags: (json['tags'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? const [],
       isFeatured: json['isFeatured'] as bool? ?? false,
       isFavorite: json['isFavorite'] as bool? ?? false,
+      isCustom: json['isCustom'] as bool? ?? false,
+      baseCharacterId: json['baseCharacterId'] as String?,
       chatCount: json['chatCount'] as int? ?? 120,
       rating: (json['rating'] as num?)?.toDouble() ?? 4.9,
+      createdAt: json['createdAt'] != null ? DateTime.tryParse(json['createdAt'] as String) : null,
+      updatedAt: json['updatedAt'] != null ? DateTime.tryParse(json['updatedAt'] as String) : null,
     );
   }
 
@@ -144,10 +194,10 @@ class AICharacterModel extends Equatable {
       description: shortDescription,
       avatarEmoji: avatar,
       systemPrompt: systemPrompt + (promptAddon.isNotEmpty ? '\n$promptAddon' : ''),
-      defaultPitch: 1.0,
-      defaultRate: 1.0,
-      languageCode: 'vi-VN',
-      isBuiltIn: false,
+      defaultPitch: voiceConfig.pitch,
+      defaultRate: voiceConfig.speed,
+      languageCode: voiceConfig.languageCode,
+      isBuiltIn: !isCustom,
     );
   }
 
@@ -161,13 +211,18 @@ class AICharacterModel extends Equatable {
         detailedBio,
         sampleGreeting,
         systemPrompt,
-        voiceId,
+        voiceConfig,
         speakingStyle,
+        gender,
         ageSuitability,
         tags,
         isFeatured,
         isFavorite,
+        isCustom,
+        baseCharacterId,
         chatCount,
         rating,
+        createdAt,
+        updatedAt,
       ];
 }

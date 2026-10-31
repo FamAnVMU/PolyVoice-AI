@@ -5,7 +5,8 @@ import '../../../chat/presentation/bloc/chat_bloc.dart';
 import '../../../chat/presentation/bloc/chat_event.dart';
 import '../../../chat/presentation/screens/chat_screen.dart';
 import '../../../settings/presentation/bloc/settings_bloc.dart';
-import '../../data/models/ai_character_model.dart';
+import '../models/ai_character_model.dart';
+import '../screens/character_editor_screen.dart';
 
 class CharacterProfileDialog extends StatelessWidget {
   final AICharacterModel character;
@@ -47,265 +48,369 @@ class CharacterProfileDialog extends StatelessWidget {
         top: 12,
         bottom: MediaQuery.of(context).viewInsets.bottom + 24,
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Drag handle
-          Center(
-            child: Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: textSecondary.withOpacity(0.3),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
-          const SizedBox(height: 20),
-
-          // Header: Avatar, Name, Category
-          Row(
-            children: [
-              Container(
-                width: 64,
-                height: 64,
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Drag handle
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [AppColors.primary, AppColors.accentCyan],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.primary.withOpacity(0.3),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
+                  color: textSecondary.withOpacity(0.3),
+                  borderRadius: BorderRadius.circular(2),
                 ),
-                child: Center(
-                  child: Text(
-                    character.avatar,
-                    style: const TextStyle(fontSize: 32),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            character.name,
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: textPrimary,
-                            ),
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: AppColors.primary.withOpacity(0.15),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.star_rounded, size: 16, color: AppColors.warning),
-                              const SizedBox(width: 3),
-                              Text(
-                                character.rating.toString(),
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppColors.warning,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      character.categoryLabel,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: AppColors.primaryLight,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Phong cách: ${character.speakingStyle}',
-                      style: TextStyle(fontSize: 12, color: textSecondary),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 18),
-
-          // Short Description
-          Text(
-            character.shortDescription,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: textPrimary,
-              height: 1.4,
-            ),
-          ),
-          const SizedBox(height: 14),
-
-          // Detailed Bio Box
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: cardBg,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: isDark ? AppColors.darkCardBorder : AppColors.lightCardBorder,
               ),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            const SizedBox(height: 18),
+
+            // Header: Avatar, Name, Category
+            Row(
               children: [
-                Row(
-                  children: [
-                    const Icon(Icons.psychology_rounded, size: 18, color: AppColors.accentCyan),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Tiểu sử & Tính cách',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                        color: textPrimary,
-                      ),
+                Container(
+                  width: 64,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [AppColors.primary, AppColors.accentCyan],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     ),
-                  ],
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.primary.withOpacity(0.3),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Center(
+                    child: Text(
+                      character.avatar,
+                      style: const TextStyle(fontSize: 32),
+                    ),
+                  ),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  character.detailedBio,
-                  style: TextStyle(fontSize: 13, color: textSecondary, height: 1.45),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 14),
-
-          // Sample Greeting Box with Voice Preview Button
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: cardBg,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: isDark ? AppColors.darkCardBorder : AppColors.lightCardBorder,
-              ),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Icon(Icons.format_quote_rounded, size: 22, color: AppColors.accentPink),
-                const SizedBox(width: 8),
+                const SizedBox(width: 16),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Lời chào mẫu:',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          color: textSecondary,
-                        ),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              character.name,
+                              style: TextStyle(
+                                fontSize: 19,
+                                fontWeight: FontWeight.bold,
+                                color: textPrimary,
+                              ),
+                            ),
+                          ),
+                          if (character.isCustom)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              margin: const EdgeInsets.only(right: 6),
+                              decoration: BoxDecoration(
+                                color: AppColors.accentCyan.withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: const Text(
+                                'Tùy chỉnh',
+                                style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.accentCyan),
+                              ),
+                            ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.star_rounded, size: 16, color: AppColors.warning),
+                                const SizedBox(width: 3),
+                                Text(
+                                  character.rating.toString(),
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.warning,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Text(
+                            character.categoryLabel,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppColors.primaryLight,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: (character.gender == 'male' ? Colors.blue : Colors.pink).withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              character.gender == 'male' ? 'Nam' : 'Nữ',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: character.gender == 'male' ? Colors.blue : Colors.pink,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        character.sampleGreeting,
+                        'Phong cách: ${character.speakingStyle}',
+                        style: TextStyle(fontSize: 12, color: textSecondary),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Short Description
+            Text(
+              character.shortDescription,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: textPrimary,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 14),
+
+            // Detailed Bio Box
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: cardBg,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: isDark ? AppColors.darkCardBorder : AppColors.lightCardBorder,
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.psychology_rounded, size: 18, color: AppColors.accentCyan),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Tiểu sử & Tính cách',
                         style: TextStyle(
                           fontSize: 13,
-                          fontStyle: FontStyle.italic,
+                          fontWeight: FontWeight.bold,
                           color: textPrimary,
                         ),
                       ),
                     ],
                   ),
-                ),
-                IconButton(
-                  tooltip: 'Nghe giọng mẫu',
-                  icon: const Icon(Icons.volume_up_rounded, color: AppColors.primaryLight),
-                  onPressed: () {
-                    final settings = context.read<SettingsBloc>().state;
-                    final voiceConfig = settings.voiceConfig.copyWith(
-                      selectedVoiceId: character.voiceId,
-                    );
-                    final coordinator = context.read<ChatBloc>().coordinator;
-                    coordinator.ttsQueueManager.stopAndClear();
-                    coordinator.ttsQueueManager.enqueue(character.sampleGreeting, voiceConfig);
-                  },
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // Tags
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: character.tags.map((tag) {
-              return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: (isDark ? Colors.white : Colors.black).withOpacity(0.06),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  '#$tag',
-                  style: TextStyle(fontSize: 11, color: textSecondary),
-                ),
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: 22),
-
-          // Action Button: Bắt đầu trò chuyện
-          ElevatedButton.icon(
-            onPressed: () {
-              Navigator.of(context).pop(); // Close sheet
-              // Dispatch create session with character
-              context.read<ChatBloc>().add(CreateSessionWithCharacterEvent(character));
-              // Navigate to ChatScreen
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const ChatScreen()),
-              );
-            },
-            icon: const Icon(Icons.chat_bubble_outline_rounded, color: Colors.white),
-            label: Text(
-              'Trò chuyện ngay với ${character.name}',
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
+                  const SizedBox(height: 8),
+                  Text(
+                    character.detailedBio,
+                    style: TextStyle(fontSize: 13, color: textSecondary, height: 1.45),
+                  ),
+                ],
               ),
-              elevation: 4,
             ),
-          ),
-        ],
+            const SizedBox(height: 14),
+
+            // Dedicated Voice Configuration Box with Sample Greeting
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: cardBg,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: isDark ? AppColors.darkCardBorder : AppColors.lightCardBorder,
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.record_voice_over_rounded, size: 18, color: AppColors.primaryLight),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Giọng nói riêng: ${character.voiceConfig.voiceName} (${character.voiceConfig.speed}x • ${character.voiceConfig.pitch}p)',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: textPrimary,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: 'Nghe giọng mẫu',
+                        icon: const Icon(Icons.volume_up_rounded, color: AppColors.primaryLight),
+                        onPressed: () {
+                          final settings = context.read<SettingsBloc>().state;
+                          final coordinator = context.read<ChatBloc>().coordinator;
+                          coordinator.ttsQueueManager.stopAndClear();
+                          coordinator.ttsQueueManager.enqueue(
+                            character.sampleGreeting,
+                            settings.voiceConfig,
+                            voiceConfig: character.voiceConfig,
+                            geminiApiKey: settings.apiKeys.geminiKey,
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Lời chào mẫu: "${character.sampleGreeting}"',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontStyle: FontStyle.italic,
+                      color: textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Tags
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: character.tags.map((tag) {
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: (isDark ? Colors.white : Colors.black).withOpacity(0.06),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '#$tag',
+                    style: TextStyle(fontSize: 11, color: textSecondary),
+                  ),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 20),
+
+            // BUTTON 1: Bắt đầu trò chuyện ngay
+            ElevatedButton.icon(
+              onPressed: () {
+                Navigator.of(context).pop();
+                context.read<ChatBloc>().add(CreateSessionWithCharacterEvent(character));
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const ChatScreen()),
+                );
+              },
+              icon: const Icon(Icons.chat_bubble_outline_rounded, color: Colors.white),
+              label: Text(
+                'Trò chuyện ngay với ${character.name}',
+                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                elevation: 4,
+              ),
+            ),
+            const SizedBox(height: 10),
+
+            // BUTTON 2: Tùy chỉnh nhân vật (Custom Character)
+            if (!character.isCustom)
+              OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => CharacterEditorScreen(baseCharacter: character),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.tune_rounded, size: 18),
+                label: Text('Tùy chỉnh giọng từ ${character.name}'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.primaryLight,
+                  side: const BorderSide(color: AppColors.primaryLight),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+              )
+            else ...[
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => CharacterEditorScreen(editingCharacter: character),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.edit_rounded, size: 16),
+                      label: const Text('Chỉnh sửa'),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 11),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                        context.read<ChatBloc>().add(DeleteCustomCharacterEvent(character.id));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Đã xóa nhân vật tùy chỉnh "${character.name}"'),
+                            backgroundColor: AppColors.warning,
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.delete_outline_rounded, color: AppColors.error, size: 16),
+                      label: const Text('Xóa', style: TextStyle(color: AppColors.error)),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: AppColors.error),
+                        padding: const EdgeInsets.symmetric(vertical: 11),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }

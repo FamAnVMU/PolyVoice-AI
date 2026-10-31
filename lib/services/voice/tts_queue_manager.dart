@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:collection';
 import '../../features/settings/data/models/voice_config_model.dart';
+import '../../features/voice/data/models/voice_configuration.dart';
 import 'tts_service.dart';
 
 /// Manages a FIFO queue of streaming sentences to eliminate latency:
@@ -10,6 +11,7 @@ class TtsQueueManager {
   final TtsService _ttsService;
   final Queue<String> _sentenceQueue = Queue<String>();
   VoiceConfigModel? _currentConfig;
+  VoiceConfiguration? _currentVoiceConfig;
   String? _currentGeminiKey;
   bool _isProcessing = false;
   bool _isInterrupted = false;
@@ -26,12 +28,14 @@ class TtsQueueManager {
   void enqueue(
     String sentence,
     VoiceConfigModel config, {
+    VoiceConfiguration? voiceConfig,
     String? geminiApiKey,
   }) {
     final clean = sentence.trim();
     if (clean.isEmpty) return;
 
     _currentConfig = config;
+    _currentVoiceConfig = voiceConfig;
     _currentGeminiKey = geminiApiKey;
     _sentenceQueue.add(clean);
 
@@ -54,6 +58,7 @@ class TtsQueueManager {
         await _ttsService.speak(
           sentence,
           config: _currentConfig,
+          voiceConfig: _currentVoiceConfig,
           geminiApiKey: _currentGeminiKey,
         );
       } catch (_) {

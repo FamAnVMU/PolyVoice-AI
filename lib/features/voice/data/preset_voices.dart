@@ -1,3 +1,4 @@
+import 'models/voice_configuration.dart';
 import 'models/voice_model.dart';
 
 class PresetVoices {
@@ -140,12 +141,12 @@ class PresetVoices {
       id: 'preset_alex_bilingual',
       name: 'Alex (Bilingual)',
       description: 'Giọng song ngữ Anh - Việt hiện đại, phát âm tiếng Anh cực chuẩn bản xứ kết hợp tiếng Việt tự nhiên, phù hợp trợ lý AI đa nhiệm.',
-      gender: 'neutral',
+      gender: 'male',
       accent: 'intl',
       category: 'professional',
       engineType: 'neural',
       remoteVoiceId: 'Puck',
-      edgeVoiceName: 'vi-VN-HoaiMyNeural',
+      edgeVoiceName: 'vi-VN-NamMinhNeural',
       nativeSystemVoiceName: 'en-us-x-sfg-network',
       createdAt: DateTime(2026, 1, 1),
       defaultSpeed: 0.90,
@@ -155,7 +156,9 @@ class PresetVoices {
     ),
   ];
 
-  static VoiceModel get defaultVoice => allPresets.first;
+  static VoiceModel get defaultFemaleVoice => allPresets[0]; // Khánh Linh
+  static VoiceModel get defaultMaleVoice => allPresets[4]; // Minh An
+  static VoiceModel get defaultVoice => defaultFemaleVoice;
 
   static VoiceModel findById(String id) {
     return allPresets.firstWhere(
@@ -163,4 +166,36 @@ class PresetVoices {
       orElse: () => defaultVoice,
     );
   }
+
+  /// Gender-safe lookup: Strictly guarantees male/female consistency and prevents silent cross-gender fallbacks.
+  static VoiceModel findVoiceSafe(String? id, {String fallbackGender = 'female'}) {
+    final targetFallback = fallbackGender == 'male' ? defaultMaleVoice : defaultFemaleVoice;
+    if (id == null || id.isEmpty) return targetFallback;
+
+    final found = allPresets.cast<VoiceModel?>().firstWhere(
+          (v) => v?.id == id,
+          orElse: () => null,
+        );
+
+    if (found == null) return targetFallback;
+
+    // Enforce gender match: do not let male return for female or vice-versa
+    if (fallbackGender != 'neutral' && found.gender != 'neutral') {
+      if (found.gender.toLowerCase() != fallbackGender.toLowerCase()) {
+        return targetFallback;
+      }
+    }
+    return found;
+  }
+
+  static List<VoiceModel> getVoicesByGender(String gender) {
+    if (gender == 'all' || gender == 'neutral') return allPresets;
+    return allPresets.where((v) => v.gender == gender).toList();
+  }
+
+  static VoiceConfiguration getVoiceConfigForId(String id, {String fallbackGender = 'female'}) {
+    final voice = findVoiceSafe(id, fallbackGender: fallbackGender);
+    return VoiceConfiguration.fromVoiceModel(voice);
+  }
 }
+

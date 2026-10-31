@@ -1,4 +1,6 @@
 import 'package:equatable/equatable.dart';
+import '../../../character/data/character_library.dart';
+import '../../../character/data/models/ai_character_model.dart';
 import '../../../profile/data/models/user_profile_model.dart';
 import '../../data/models/chat_message.dart';
 import '../../data/models/chat_session.dart';
@@ -13,9 +15,10 @@ class ChatState extends Equatable {
   final bool isAutoScrollLocked;
   final String? errorMessage;
 
-  // Multi-session & Social platform state
+  // Multi-session & Characters
   final List<ChatSession> allSessions;
   final ChatSession? activeSession;
+  final List<AICharacterModel> customCharacters;
   final UserProfileModel userProfile;
   final String sessionFilter; // 'all' | 'pinned' | 'archived'
   final String searchQuery;
@@ -31,10 +34,15 @@ class ChatState extends Equatable {
     this.errorMessage,
     this.allSessions = const [],
     this.activeSession,
+    this.customCharacters = const [],
     this.userProfile = const UserProfileModel(),
     this.sessionFilter = 'all',
     this.searchQuery = '',
   });
+
+  /// Returns combined list of built-in base characters and user custom characters
+  List<AICharacterModel> get allCharacters =>
+      CharacterLibrary.getAllCharacters(customCharacters: customCharacters);
 
   /// Filtered sessions based on active filter tab and search text
   List<ChatSession> get filteredSessions {
@@ -79,6 +87,7 @@ class ChatState extends Equatable {
     String? errorMessage,
     List<ChatSession>? allSessions,
     ChatSession? activeSession,
+    List<AICharacterModel>? customCharacters,
     UserProfileModel? userProfile,
     String? sessionFilter,
     String? searchQuery,
@@ -94,6 +103,7 @@ class ChatState extends Equatable {
       errorMessage: errorMessage,
       allSessions: allSessions ?? this.allSessions,
       activeSession: activeSession ?? this.activeSession,
+      customCharacters: customCharacters ?? this.customCharacters,
       userProfile: userProfile ?? this.userProfile,
       sessionFilter: sessionFilter ?? this.sessionFilter,
       searchQuery: searchQuery ?? this.searchQuery,
@@ -112,6 +122,7 @@ class ChatState extends Equatable {
         errorMessage,
         allSessions,
         activeSession,
+        customCharacters,
         userProfile,
         sessionFilter,
         searchQuery,

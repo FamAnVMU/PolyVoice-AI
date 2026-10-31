@@ -19,6 +19,8 @@ class ChatLocalStorageService {
     _runMigrationIfNeeded();
   }
 
+  SharedPreferences get prefs => _prefs;
+
   static Future<ChatLocalStorageService> init() async {
     final prefs = await SharedPreferences.getInstance();
     return ChatLocalStorageService(prefs);

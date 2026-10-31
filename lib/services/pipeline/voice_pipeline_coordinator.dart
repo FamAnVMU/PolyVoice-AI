@@ -7,6 +7,7 @@ import '../../features/chat/data/models/chat_message.dart';
 import '../../features/settings/data/models/api_keys_model.dart';
 import '../../features/settings/data/models/persona_model.dart';
 import '../../features/settings/data/models/voice_config_model.dart';
+import '../../features/voice/data/models/voice_configuration.dart';
 import '../llm/llm_service_factory.dart';
 import '../voice/stt_service.dart';
 import '../voice/tts_queue_manager.dart';
@@ -151,6 +152,7 @@ class VoicePipelineCoordinator {
     required ApiKeysModel apiKeys,
     required PersonaModel persona,
     required VoiceConfigModel voiceConfig,
+    VoiceConfiguration? characterVoiceConfig,
     String? fallbackTranscript,
   }) async {
     String? recognizedText;
@@ -180,6 +182,7 @@ class VoicePipelineCoordinator {
       apiKeys: apiKeys,
       persona: persona,
       voiceConfig: voiceConfig,
+      characterVoiceConfig: characterVoiceConfig,
       enableVoicePlayback: true,
     );
   }
@@ -233,6 +236,7 @@ QUY TẮC PHẢN HỒI VÀ NGÔN NGỮ (BẮT BUỘC TUÂN THỦ CHẶT CHẼ):
     required ApiKeysModel apiKeys,
     required PersonaModel persona,
     required VoiceConfigModel voiceConfig,
+    VoiceConfiguration? characterVoiceConfig,
     bool enableVoicePlayback = true,
   }) async {
     await interrupt();
@@ -283,6 +287,7 @@ QUY TẮC PHẢN HỒI VÀ NGÔN NGỮ (BẮT BUỘC TUÂN THỦ CHẶT CHẼ):
       systemPrompt: effectiveSystemPrompt,
       apiKeys: apiKeys,
       voiceConfig: voiceConfig,
+      characterVoiceConfig: characterVoiceConfig,
       enableVoicePlayback: enableVoicePlayback,
       fullResponseBuffer: fullResponseBuffer,
       sanitizer: sanitizer,
@@ -297,6 +302,7 @@ QUY TẮC PHẢN HỒI VÀ NGÔN NGỮ (BẮT BUỘC TUÂN THỦ CHẶT CHẼ):
     required String systemPrompt,
     required ApiKeysModel apiKeys,
     required VoiceConfigModel voiceConfig,
+    VoiceConfiguration? characterVoiceConfig,
     required bool enableVoicePlayback,
     required StringBuffer fullResponseBuffer,
     required StreamResponseSanitizer sanitizer,
@@ -319,6 +325,7 @@ QUY TẮC PHẢN HỒI VÀ NGÔN NGỮ (BẮT BUỘC TUÂN THỦ CHẶT CHẼ):
         systemPrompt: systemPrompt,
         apiKeys: apiKeys,
         voiceConfig: voiceConfig,
+        characterVoiceConfig: characterVoiceConfig,
         enableVoicePlayback: enableVoicePlayback,
         fullResponseBuffer: fullResponseBuffer,
         sanitizer: sanitizer,
@@ -365,6 +372,7 @@ QUY TẮC PHẢN HỒI VÀ NGÔN NGỮ (BẮT BUỘC TUÂN THỦ CHẶT CHẼ):
                 ttsQueueManager.enqueue(
                   sentence,
                   voiceConfig,
+                  voiceConfig: characterVoiceConfig,
                   geminiApiKey: apiKeys.geminiKey,
                 );
               }
@@ -388,6 +396,7 @@ QUY TẮC PHẢN HỒI VÀ NGÔN NGỮ (BẮT BUỘC TUÂN THỦ CHẶT CHẼ):
               systemPrompt: systemPrompt,
               apiKeys: apiKeys,
               voiceConfig: voiceConfig,
+              characterVoiceConfig: characterVoiceConfig,
               enableVoicePlayback: enableVoicePlayback,
               fullResponseBuffer: fullResponseBuffer,
               sanitizer: sanitizer,
@@ -416,6 +425,7 @@ QUY TẮC PHẢN HỒI VÀ NGÔN NGỮ (BẮT BUỘC TUÂN THỦ CHẶT CHẼ):
                 ttsQueueManager.enqueue(
                   sentence,
                   voiceConfig,
+                  voiceConfig: characterVoiceConfig,
                   geminiApiKey: apiKeys.geminiKey,
                 );
               }
@@ -428,6 +438,7 @@ QUY TẮC PHẢN HỒI VÀ NGÔN NGỮ (BẮT BUỘC TUÂN THỦ CHẶT CHẼ):
               ttsQueueManager.enqueue(
                 remainder,
                 voiceConfig,
+                voiceConfig: characterVoiceConfig,
                 geminiApiKey: apiKeys.geminiKey,
               );
             }
@@ -451,6 +462,7 @@ QUY TẮC PHẢN HỒI VÀ NGÔN NGỮ (BẮT BUỘC TUÂN THỦ CHẶT CHẼ):
           systemPrompt: systemPrompt,
           apiKeys: apiKeys,
           voiceConfig: voiceConfig,
+          characterVoiceConfig: characterVoiceConfig,
           enableVoicePlayback: enableVoicePlayback,
           fullResponseBuffer: fullResponseBuffer,
           sanitizer: sanitizer,

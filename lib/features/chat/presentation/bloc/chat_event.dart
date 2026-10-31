@@ -159,3 +159,22 @@ class NotifyFallbackEvent extends ChatEvent {
   @override
   List<Object?> get props => [message];
 }
+
+class SaveCustomCharacterEvent extends ChatEvent {
+  final AICharacterModel character;
+  const SaveCustomCharacterEvent(this.character);
+
+  @override
+  List<Object?> get props => [character];
+}
+
+class DeleteCustomCharacterEvent extends ChatEvent {
+  final String characterId;
+  const DeleteCustomCharacterEvent(this.characterId);
+
+  @override
+  List<Object?> get props => [characterId];
+}
+
+class LoadCustomCharactersEvent extends ChatEvent {}
+

@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../settings/data/models/persona_model.dart';
+import '../../../character/data/character_library.dart';
+import '../../../character/presentation/widgets/character_profile_dialog.dart';
 import '../../../settings/presentation/bloc/settings_bloc.dart';
 import '../../../settings/presentation/bloc/settings_state.dart';
 import '../../../settings/presentation/screens/settings_screen.dart';
@@ -287,13 +288,20 @@ class _ChatScreenState extends State<ChatScreen> {
               return BlocBuilder<SettingsBloc, SettingsState>(
                 builder: (context, settingsState) {
                   final active = chatState.activeSession;
-                  final fallbackPersona = settingsState.activePersona;
-                  final charName = active?.characterName ?? fallbackPersona.name;
-                  final charAvatar = active?.characterAvatar ?? fallbackPersona.avatarEmoji;
+                  final defaultChar = CharacterLibrary.getFeaturedCharacters().first;
+                  final charName = active?.characterName ?? defaultChar.name;
+                  final charAvatar = active?.characterAvatar ?? defaultChar.avatar;
+                  final voiceName = active?.voiceConfig?.voiceName ?? 'Giọng mặc định';
                   final provider = settingsState.apiKeys.selectedProvider.toUpperCase();
 
+                  // Find full character if available
+                  final matchedChar = chatState.allCharacters.firstWhere(
+                    (c) => c.id == active?.characterId,
+                    orElse: () => defaultChar,
+                  );
+
                   return GestureDetector(
-                    onTap: () => _showSessionMemoryDialog(context),
+                    onTap: () => CharacterProfileDialog.show(context, matchedChar),
                     child: Row(
                       children: [
                         Container(
@@ -314,11 +322,19 @@ class _ChatScreenState extends State<ChatScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                charName,
-                                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
+                              Row(
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      charName,
+                                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  const Icon(Icons.info_outline_rounded, size: 14, color: AppColors.primaryLight),
+                                ],
                               ),
                               Row(
                                 children: [
@@ -333,7 +349,7 @@ class _ChatScreenState extends State<ChatScreen> {
                                   const SizedBox(width: 5),
                                   Expanded(
                                     child: Text(
-                                      '${active != null && active.memoryNotes.isNotEmpty ? '🧠 ${active.memoryNotes.length} ký ức • ' : ''}$provider BYOK',
+                                      '🎙️ $voiceName • ${active != null && active.memoryNotes.isNotEmpty ? '🧠 ${active.memoryNotes.length} • ' : ''}$provider',
                                       style: const TextStyle(fontSize: 11, color: Colors.grey),
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,

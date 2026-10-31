@@ -3,14 +3,16 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../character/data/character_library.dart';
 import '../../../character/data/models/ai_character_model.dart';
+import '../../../character/presentation/screens/character_editor_screen.dart';
 import '../../../character/presentation/widgets/character_profile_dialog.dart';
 import '../../../chat/presentation/bloc/chat_bloc.dart';
 import '../../../chat/presentation/bloc/chat_event.dart';
 import '../../../chat/presentation/bloc/chat_state.dart';
 import '../../../chat/presentation/screens/chat_screen.dart';
+import '../../../settings/presentation/bloc/settings_bloc.dart';
 import '../../../voice/presentation/screens/continuous_voice_screen.dart';
 
-class HomeTab extends StatelessWidget {
+class HomeTab extends StatefulWidget {
   final VoidCallback onNavigateToDiscover;
   final VoidCallback onNavigateToMessages;
 
@@ -19,6 +21,37 @@ class HomeTab extends StatelessWidget {
     required this.onNavigateToDiscover,
     required this.onNavigateToMessages,
   });
+
+  @override
+  State<HomeTab> createState() => _HomeTabState();
+}
+
+class _HomeTabState extends State<HomeTab> {
+  String? _currentlyPlayingCharId;
+
+  void _previewVoice(AICharacterModel char) {
+    setState(() {
+      _currentlyPlayingCharId = char.id;
+    });
+
+    final settings = context.read<SettingsBloc>().state;
+    final coordinator = context.read<ChatBloc>().coordinator;
+    coordinator.ttsQueueManager.stopAndClear();
+    coordinator.ttsQueueManager.enqueue(
+      char.sampleGreeting,
+      settings.voiceConfig,
+      voiceConfig: char.voiceConfig,
+      geminiApiKey: settings.apiKeys.geminiKey,
+    );
+
+    Future.delayed(const Duration(seconds: 4), () {
+      if (mounted && _currentlyPlayingCharId == char.id) {
+        setState(() {
+          _currentlyPlayingCharId = null;
+        });
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -74,8 +107,8 @@ class HomeTab extends StatelessWidget {
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: Text(
-                              '${profile.ageGroupLabel.split('(').first.trim()} • ${profile.responseStyleLabel}',
-                              style: TextStyle(
+                              "${profile.ageGroupLabel.split('(').first.trim()} • ${profile.responseStyleLabel}",
+                              style: const TextStyle(
                                 fontSize: 11,
                                 color: AppColors.primaryLight,
                                 fontWeight: FontWeight.w600,
@@ -84,7 +117,7 @@ class HomeTab extends StatelessWidget {
                           ),
                         ],
                       ),
-                      // Quick Voice Mode Icon Button
+                      // Quick Voice Mode Button
                       IconButton(
                         tooltip: 'Chế độ đàm thoại trực tiếp',
                         icon: Container(
@@ -114,9 +147,9 @@ class HomeTab extends StatelessWidget {
                   );
                 },
               ),
-              const SizedBox(height: 22),
+              const SizedBox(height: 20),
 
-              // Banner: Real-Time AI Social Experience
+              // Banner: Real-Time Multi-Character AI Architecture
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(18),
@@ -168,7 +201,7 @@ class HomeTab extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Mỗi nhân vật mang cá tính, chuyên môn, giọng nói và bộ nhớ hoàn toàn độc lập.',
+                      'Mỗi nhân vật mang cá tính, chuyên môn, giọng nói riêng biệt và bộ nhớ cuộc trò chuyện hoàn toàn độc lập.',
                       style: TextStyle(
                         color: Colors.white.withOpacity(0.88),
                         fontSize: 13,
@@ -177,7 +210,7 @@ class HomeTab extends StatelessWidget {
                     ),
                     const SizedBox(height: 14),
                     ElevatedButton(
-                      onPressed: onNavigateToDiscover,
+                      onPressed: widget.onNavigateToDiscover,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.white,
                         foregroundColor: AppColors.primaryDark,
@@ -194,7 +227,213 @@ class HomeTab extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(height: 26),
+              const SizedBox(height: 24),
+
+              // Section: My Custom Characters (Tùy chỉnh của tôi)
+              BlocBuilder<ChatBloc, ChatState>(
+                builder: (context, state) {
+                  final customChars = state.customCharacters;
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Text(
+                                'Nhân vật của tôi',
+                                style: TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.bold,
+                                  color: textPrimary,
+                                ),
+                              ),
+                              if (customChars.isNotEmpty) ...[
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 1.5),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.accentCyan.withOpacity(0.18),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Text(
+                                    '${customChars.length}',
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.accentCyan,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                          TextButton.icon(
+                            onPressed: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => const CharacterEditorScreen(
+                                    mode: CharacterEditorMode.createScratch,
+                                  ),
+                                ),
+                              );
+                            },
+                            icon: const Icon(Icons.add_rounded, size: 16, color: AppColors.primaryLight),
+                            label: const Text(
+                              'Tạo mới',
+                              style: TextStyle(color: AppColors.primaryLight, fontSize: 13),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+
+                      if (customChars.isEmpty)
+                        GestureDetector(
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => const CharacterEditorScreen(
+                                  mode: CharacterEditorMode.createScratch,
+                                ),
+                              ),
+                            );
+                          },
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                            decoration: BoxDecoration(
+                              color: cardBg,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: AppColors.primary.withOpacity(0.35),
+                                style: BorderStyle.solid,
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 44,
+                                  height: 44,
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primary.withOpacity(0.12),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.person_add_alt_1_rounded,
+                                    color: AppColors.primaryLight,
+                                    size: 22,
+                                  ),
+                                ),
+                                const SizedBox(width: 14),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Tạo nhân vật AI của riêng bạn',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13,
+                                          color: textPrimary,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        'Tùy chỉnh giọng nói, xưng hô, phong cách và tiểu sử theo ý thích.',
+                                        style: TextStyle(fontSize: 11, color: textSecondary),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppColors.primaryLight),
+                              ],
+                            ),
+                          ),
+                        )
+                      else
+                        SizedBox(
+                          height: 195,
+                          child: ListView.separated(
+                            scrollDirection: Axis.horizontal,
+                            physics: const BouncingScrollPhysics(),
+                            itemCount: customChars.length + 1,
+                            separatorBuilder: (_, __) => const SizedBox(width: 12),
+                            itemBuilder: (context, index) {
+                              if (index == customChars.length) {
+                                // Add New Button Card
+                                return GestureDetector(
+                                  onTap: () {
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (_) => const CharacterEditorScreen(
+                                          mode: CharacterEditorMode.createScratch,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                  child: Container(
+                                    width: 140,
+                                    decoration: BoxDecoration(
+                                      color: cardBg,
+                                      borderRadius: BorderRadius.circular(20),
+                                      border: Border.all(
+                                        color: AppColors.primary.withOpacity(0.35),
+                                      ),
+                                    ),
+                                    child: Center(
+                                      child: Column(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          Container(
+                                            padding: const EdgeInsets.all(12),
+                                            decoration: BoxDecoration(
+                                              color: AppColors.primary.withOpacity(0.12),
+                                              shape: BoxShape.circle,
+                                            ),
+                                            child: const Icon(
+                                              Icons.add_rounded,
+                                              size: 24,
+                                              color: AppColors.primaryLight,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 8),
+                                          Text(
+                                            'Tạo thêm\nnhân vật',
+                                            textAlign: TextAlign.center,
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.bold,
+                                              color: textPrimary,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              }
+
+                              final char = customChars[index];
+                              return _buildCharacterMiniCard(
+                                context,
+                                char,
+                                cardBg,
+                                borderColor,
+                                textPrimary,
+                                textSecondary,
+                                isDark,
+                              );
+                            },
+                          ),
+                        ),
+                    ],
+                  );
+                },
+              ),
+              const SizedBox(height: 24),
 
               // Section: Featured Characters (Carousel)
               Row(
@@ -209,8 +448,8 @@ class HomeTab extends StatelessWidget {
                     ),
                   ),
                   TextButton(
-                    onPressed: onNavigateToDiscover,
-                    child: Text(
+                    onPressed: widget.onNavigateToDiscover,
+                    child: const Text(
                       'Khám phá thêm',
                       style: TextStyle(color: AppColors.primaryLight, fontSize: 13),
                     ),
@@ -219,7 +458,7 @@ class HomeTab extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               SizedBox(
-                height: 195,
+                height: 205,
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
                   physics: const BouncingScrollPhysics(),
@@ -227,7 +466,15 @@ class HomeTab extends StatelessWidget {
                   separatorBuilder: (_, __) => const SizedBox(width: 14),
                   itemBuilder: (context, index) {
                     final char = featuredCharacters[index];
-                    return _buildFeaturedCard(context, char, cardBg, borderColor, textPrimary, textSecondary, isDark);
+                    return _buildCharacterMiniCard(
+                      context,
+                      char,
+                      cardBg,
+                      borderColor,
+                      textPrimary,
+                      textSecondary,
+                      isDark,
+                    );
                   },
                 ),
               ),
@@ -246,8 +493,8 @@ class HomeTab extends StatelessWidget {
                     ),
                   ),
                   TextButton(
-                    onPressed: onNavigateToMessages,
-                    child: Text(
+                    onPressed: widget.onNavigateToMessages,
+                    child: const Text(
                       'Hộp thư',
                       style: TextStyle(color: AppColors.primaryLight, fontSize: 13),
                     ),
@@ -280,7 +527,7 @@ class HomeTab extends StatelessWidget {
                             ),
                             const SizedBox(height: 8),
                             TextButton(
-                              onPressed: onNavigateToDiscover,
+                              onPressed: widget.onNavigateToDiscover,
                               child: const Text('Chọn một nhân vật để bắt đầu'),
                             ),
                           ],
@@ -309,9 +556,9 @@ class HomeTab extends StatelessWidget {
                           leading: Container(
                             width: 44,
                             height: 44,
-                            decoration: BoxDecoration(
+                            decoration: const BoxDecoration(
                               shape: BoxShape.circle,
-                              gradient: const LinearGradient(
+                              gradient: LinearGradient(
                                 colors: [AppColors.primary, AppColors.accentCyan],
                               ),
                             ),
@@ -333,6 +580,24 @@ class HomeTab extends StatelessWidget {
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
+                              if (session.voiceConfig != null) ...[
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.accentCyan.withOpacity(0.12),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    '🎙️ ${session.voiceConfig!.voiceName}',
+                                    style: const TextStyle(
+                                      fontSize: 9,
+                                      color: AppColors.accentCyan,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                              ],
                               if (session.isPinned)
                                 const Icon(Icons.push_pin_rounded, size: 14, color: AppColors.warning),
                             ],
@@ -364,7 +629,7 @@ class HomeTab extends StatelessWidget {
     );
   }
 
-  Widget _buildFeaturedCard(
+  Widget _buildCharacterMiniCard(
     BuildContext context,
     AICharacterModel char,
     Color cardBg,
@@ -373,19 +638,27 @@ class HomeTab extends StatelessWidget {
     Color textSecondary,
     bool isDark,
   ) {
+    final isPlaying = _currentlyPlayingCharId == char.id;
+    final isMale = char.gender == 'male';
+
     return GestureDetector(
       onTap: () => CharacterProfileDialog.show(context, char),
       child: Container(
-        width: 155,
+        width: 160,
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: cardBg,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: borderColor),
+          border: Border.all(
+            color: isPlaying ? AppColors.accentCyan : borderColor,
+            width: isPlaying ? 1.5 : 1,
+          ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(isDark ? 0.2 : 0.04),
-              blurRadius: 8,
+              color: isPlaying
+                  ? AppColors.accentCyan.withOpacity(0.25)
+                  : Colors.black.withOpacity(isDark ? 0.2 : 0.04),
+              blurRadius: isPlaying ? 10 : 8,
               offset: const Offset(0, 3),
             ),
           ],
@@ -397,63 +670,89 @@ class HomeTab extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Container(
-                  width: 44,
-                  height: 44,
+                  width: 42,
+                  height: 42,
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [AppColors.primary, AppColors.accentCyan],
+                    gradient: LinearGradient(
+                      colors: isMale
+                          ? [Colors.blue.shade600, AppColors.accentCyan]
+                          : [Colors.pink.shade500, AppColors.primary],
                     ),
                     shape: BoxShape.circle,
                   ),
                   child: Center(
-                    child: Text(char.avatar, style: const TextStyle(fontSize: 22)),
+                    child: Text(char.avatar, style: const TextStyle(fontSize: 20)),
+                  ),
+                ),
+                IconButton(
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+                  icon: Icon(
+                    isPlaying ? Icons.volume_up_rounded : Icons.volume_down_rounded,
+                    size: 19,
+                    color: isPlaying ? AppColors.accentCyan : AppColors.primaryLight,
+                  ),
+                  tooltip: 'Nghe thử giọng',
+                  onPressed: () => _previewVoice(char),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    char.name,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      color: textPrimary,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                   decoration: BoxDecoration(
-                    color: AppColors.warning.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(8),
+                    color: (isMale ? Colors.blue : Colors.pink).withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(4),
                   ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.star_rounded, size: 13, color: AppColors.warning),
-                      const SizedBox(width: 2),
-                      Text(
-                        char.rating.toString(),
-                        style: const TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.warning,
-                        ),
-                      ),
-                    ],
+                  child: Text(
+                    isMale ? 'Nam' : 'Nữ',
+                    style: TextStyle(
+                      fontSize: 8.5,
+                      fontWeight: FontWeight.bold,
+                      color: isMale ? Colors.blue : Colors.pink,
+                    ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 2),
             Text(
-              char.name,
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 13,
-                color: textPrimary,
+              '🎙️ ${char.voiceConfig.voiceName}',
+              style: const TextStyle(
+                fontSize: 9.5,
+                color: AppColors.accentCyan,
+                fontWeight: FontWeight.w600,
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
-            const SizedBox(height: 2),
-            Text(
-              char.shortDescription,
-              style: TextStyle(fontSize: 11, color: textSecondary, height: 1.25),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
+            const SizedBox(height: 3),
+            Expanded(
+              child: Text(
+                char.shortDescription,
+                style: TextStyle(fontSize: 10.5, color: textSecondary, height: 1.25),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
-            const Spacer(),
+            const SizedBox(height: 6),
             SizedBox(
               width: double.infinity,
-              height: 30,
+              height: 28,
               child: ElevatedButton(
                 onPressed: () {
                   context.read<ChatBloc>().add(CreateSessionWithCharacterEvent(char));
