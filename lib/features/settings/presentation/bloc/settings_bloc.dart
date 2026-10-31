@@ -44,6 +44,7 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
     on<DeleteCustomVoiceEvent>(_onDeleteCustomVoice);
     on<SelectVoiceModelEvent>(_onSelectVoiceModel);
     on<ToggleThemeModeEvent>(_onToggleThemeMode);
+    on<TestAllApiKeysEvent>(_onTestAllApiKeys);
   }
 
   String _getProviderDisplayName(String provider) {
@@ -430,6 +431,127 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
         ),
       ));
     }
+  }
+
+  Future<void> _onTestAllApiKeys(
+    TestAllApiKeysEvent event,
+    Emitter<SettingsState> emit,
+  ) async {
+    final keys = state.apiKeys;
+    final Map<String, String> keysToTest = {};
+
+    if (keys.geminiKey.trim().isNotEmpty) keysToTest[AppConstants.providerGemini] = keys.geminiKey.trim();
+    if (keys.openAiKey.trim().isNotEmpty) keysToTest[AppConstants.providerOpenAi] = keys.openAiKey.trim();
+    if (keys.anthropicKey.trim().isNotEmpty) keysToTest[AppConstants.providerAnthropic] = keys.anthropicKey.trim();
+    if (keys.groqKey.trim().isNotEmpty) keysToTest[AppConstants.providerGroq] = keys.groqKey.trim();
+    if (keys.openRouterKey.trim().isNotEmpty) keysToTest[AppConstants.providerOpenRouter] = keys.openRouterKey.trim();
+    if (state.voiceConfig.elevenLabsApiKey.trim().isNotEmpty) {
+      keysToTest['elevenlabs'] = state.voiceConfig.elevenLabsApiKey.trim();
+    }
+
+    if (keysToTest.isEmpty) {
+      emit(state.copyWith(
+        activeNotification: ApiNotification(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          provider: 'all',
+          providerName: 'Hệ thống API',
+          type: ApiNotificationType.warning,
+          title: 'Chưa có API Key nào được cấu hình',
+          message: 'Vui lòng nhập ít nhất một API Key để tiến hành kiểm tra kết nối.',
+          timestamp: DateTime.now(),
+        ),
+      ));
+      return;
+    }
+
+    final updatedStatuses = Map<String, ApiTestStatus>.from(state.providerTestStatus);
+    final updatedMessages = Map<String, String>.from(state.providerTestMessage);
+
+    for (final p in keysToTest.keys) {
+      updatedStatuses[p] = ApiTestStatus.testing;
+      updatedMessages[p] = 'Đang kiểm tra kết nối...';
+    }
+
+    emit(state.copyWith(
+      providerTestStatus: updatedStatuses,
+      providerTestMessage: updatedMessages,
+      activeNotification: ApiNotification(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        provider: 'all',
+        providerName: 'Tất cả API',
+        type: ApiNotificationType.checking,
+        title: 'Đang kiểm tra toàn bộ API Key...',
+        message: 'Đang tiến hành kiểm tra đồng thời ${keysToTest.length} API Key đã cấu hình...',
+        timestamp: DateTime.now(),
+      ),
+    ));
+
+    int successCount = 0;
+    int failedCount = 0;
+
+    for (final entry in keysToTest.entries) {
+      final p = entry.key;
+      final key = entry.value;
+
+      try {
+        bool isOk = false;
+        if (p == 'elevenlabs') {
+          // ElevenLabs direct verification
+          isOk = await ttsService.elevenLabsService.testConnection(key);
+        } else {
+          final providerService = llmFactory.getProvider(p);
+          isOk = await providerService.testConnection(
+            apiKey: key,
+            customBaseUrl: p == AppConstants.providerOpenRouter ? keys.openRouterBaseUrl : null,
+          );
+        }
+
+        if (isOk) {
+          successCount++;
+          updatedStatuses[p] = ApiTestStatus.success;
+          updatedMessages[p] = '✓ Kết nối thành công';
+        } else {
+          failedCount++;
+          updatedStatuses[p] = ApiTestStatus.failed;
+          updatedMessages[p] = '✗ Phản hồi không hợp lệ';
+        }
+      } catch (e) {
+        failedCount++;
+        updatedStatuses[p] = ApiTestStatus.failed;
+        final errorStr = e.toString().replaceFirst('Exception: ', '');
+        if (errorStr.contains('401') || errorStr.toLowerCase().contains('unauthorized')) {
+          updatedMessages[p] = '✗ API Key không hợp lệ hoặc hết hạn';
+        } else if (errorStr.contains('429')) {
+          updatedMessages[p] = '✗ Hết quota hoặc chạm rate-limit';
+        } else {
+          updatedMessages[p] = '✗ Lỗi kết nối';
+        }
+      }
+
+      emit(state.copyWith(
+        providerTestStatus: Map<String, ApiTestStatus>.from(updatedStatuses),
+        providerTestMessage: Map<String, String>.from(updatedMessages),
+      ));
+    }
+
+    final isAllSuccess = failedCount == 0;
+    emit(state.copyWith(
+      providerTestStatus: updatedStatuses,
+      providerTestMessage: updatedMessages,
+      activeNotification: ApiNotification(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        provider: 'all',
+        providerName: 'Tổng hợp API',
+        type: isAllSuccess ? ApiNotificationType.success : (successCount > 0 ? ApiNotificationType.warning : ApiNotificationType.error),
+        title: isAllSuccess
+            ? 'Tất cả API Key hoạt động tốt! ($successCount/${keysToTest.length})'
+            : 'Kiểm tra hoàn tất: $successCount thành công, $failedCount thất bại',
+        message: isAllSuccess
+            ? 'Đã xác thực thành công toàn bộ $successCount dịch vụ AI. Ứng dụng đã sẵn sàng.'
+            : 'Phát hiện $failedCount API Key gặp lỗi hoặc hết hạn ngạch. Vui lòng xem chi tiết bên dưới.',
+        timestamp: DateTime.now(),
+      ),
+    ));
   }
 
   Future<void> _onSelectPersona(

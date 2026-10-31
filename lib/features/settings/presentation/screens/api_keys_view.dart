@@ -468,6 +468,61 @@ class _ApiKeysViewState extends State<ApiKeysView> {
             ],
           ),
         ),
+        const SizedBox(height: 14),
+
+        // Nút Kiểm tra tất cả API Key (Batch Verification)
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                AppColors.primary.withValues(alpha: 0.15),
+                AppColors.accentCyan.withValues(alpha: 0.1),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.fact_check_rounded, color: AppColors.accentCyan, size: 26),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Kiểm tra toàn bộ hệ thống API',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: textPrimary),
+                    ),
+                    Text(
+                      'Xác thực đồng thời tất cả các API Key đã lưu trong máy',
+                      style: TextStyle(fontSize: 11, color: textSecondary),
+                    ),
+                  ],
+                ),
+              ),
+              ElevatedButton.icon(
+                onPressed: () {
+                  context.read<SettingsBloc>().add(TestAllApiKeysEvent());
+                },
+                icon: const Icon(Icons.network_check_rounded, size: 16, color: Colors.white),
+                label: const Text(
+                  'Kiểm tra tất cả',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  elevation: 2,
+                ),
+              ),
+            ],
+          ),
+        ),
         const SizedBox(height: 18),
 
         // 1. Google Gemini Card

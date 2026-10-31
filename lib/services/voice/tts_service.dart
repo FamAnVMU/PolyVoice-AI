@@ -19,6 +19,10 @@ class TtsService {
   final GeminiTtsService _geminiTtsService = GeminiTtsService();
   final EdgeTtsService _edgeTtsService = EdgeTtsService();
 
+  ElevenLabsService get elevenLabsService => _elevenLabsService;
+  EdgeTtsService get edgeTtsService => _edgeTtsService;
+  GeminiTtsService get geminiTtsService => _geminiTtsService;
+
   bool _isPlaying = false;
   Completer<void>? _currentSpeechCompleter;
 
@@ -175,7 +179,14 @@ class TtsService {
           },
         );
         if (played) {
-          await _currentSpeechCompleter?.future;
+          // Add safety timeout so completer never hangs indefinitely
+          await _currentSpeechCompleter?.future.timeout(
+            const Duration(seconds: 40),
+            onTimeout: () {
+              _isPlaying = false;
+              onCompletion?.call();
+            },
+          );
           return;
         }
       } catch (_) {
@@ -209,7 +220,14 @@ class TtsService {
           },
         );
         if (played) {
-          await _currentSpeechCompleter?.future;
+          // Add safety timeout so completer never hangs indefinitely
+          await _currentSpeechCompleter?.future.timeout(
+            const Duration(seconds: 40),
+            onTimeout: () {
+              _isPlaying = false;
+              onCompletion?.call();
+            },
+          );
           return;
         }
       } catch (_) {
@@ -255,7 +273,14 @@ class TtsService {
           },
         );
         if (played) {
-          await _currentSpeechCompleter?.future;
+          // Add safety timeout so completer never hangs indefinitely
+          await _currentSpeechCompleter?.future.timeout(
+            const Duration(seconds: 40),
+            onTimeout: () {
+              _isPlaying = false;
+              onCompletion?.call();
+            },
+          );
           return;
         }
       } catch (_) {
@@ -268,7 +293,13 @@ class TtsService {
       await configureVoice(effectiveConfig, activeVoice: activeVoice);
       final result = await _flutterTts.speak(normalizedText);
       if (result == 1) {
-        await _currentSpeechCompleter?.future;
+        await _currentSpeechCompleter?.future.timeout(
+          const Duration(seconds: 40),
+          onTimeout: () {
+            _isPlaying = false;
+            onCompletion?.call();
+          },
+        );
       } else {
         _isPlaying = false;
       }

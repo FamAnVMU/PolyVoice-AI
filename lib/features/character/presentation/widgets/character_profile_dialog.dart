@@ -8,7 +8,7 @@ import '../../../settings/presentation/bloc/settings_bloc.dart';
 import '../../data/models/ai_character_model.dart';
 import '../screens/character_editor_screen.dart';
 
-class CharacterProfileDialog extends StatelessWidget {
+class CharacterProfileDialog extends StatefulWidget {
   final AICharacterModel character;
 
   const CharacterProfileDialog({
@@ -22,6 +22,59 @@ class CharacterProfileDialog extends StatelessWidget {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => CharacterProfileDialog(character: character),
+    );
+  }
+
+  @override
+  State<CharacterProfileDialog> createState() => _CharacterProfileDialogState();
+}
+
+class _CharacterProfileDialogState extends State<CharacterProfileDialog> {
+  bool _isPlayingPreview = false;
+
+  @override
+  void dispose() {
+    // Stop TTS if user closes modal sheet while speaking
+    if (_isPlayingPreview) {
+      try {
+        context.read<ChatBloc>().coordinator.ttsQueueManager.stopAndClear();
+      } catch (_) {}
+    }
+    super.dispose();
+  }
+
+  Future<void> _toggleVoicePreview() async {
+    final coordinator = context.read<ChatBloc>().coordinator;
+    final settings = context.read<SettingsBloc>().state;
+
+    if (_isPlayingPreview) {
+      await coordinator.ttsQueueManager.stopAndClear();
+      if (mounted) setState(() => _isPlayingPreview = false);
+      return;
+    }
+
+    setState(() => _isPlayingPreview = true);
+
+    await coordinator.ttsQueueManager.stopAndClear();
+
+    // Natural preview sentence
+    final previewText = widget.character.sampleGreeting.trim().isNotEmpty
+        ? widget.character.sampleGreeting
+        : 'Xin chào! Rất vui được gặp bạn. Hôm nay bạn muốn cùng tôi trò chuyện về điều gì? Tôi luôn sẵn sàng lắng nghe và chia sẻ với bạn.';
+
+    void onFinished() {
+      if (mounted) {
+        setState(() => _isPlayingPreview = false);
+      }
+    }
+
+    coordinator.ttsQueueManager.addFinishedListener(onFinished);
+
+    coordinator.ttsQueueManager.enqueue(
+      previewText,
+      settings.voiceConfig,
+      voiceConfig: widget.character.voiceConfig,
+      geminiApiKey: settings.apiKeys.geminiKey,
     );
   }
 
@@ -89,7 +142,7 @@ class CharacterProfileDialog extends StatelessWidget {
                   ),
                   child: Center(
                     child: Text(
-                      character.avatar,
+                      widget.character.avatar,
                       style: const TextStyle(fontSize: 32),
                     ),
                   ),
@@ -103,7 +156,7 @@ class CharacterProfileDialog extends StatelessWidget {
                         children: [
                           Expanded(
                             child: Text(
-                              character.name,
+                              widget.character.name,
                               style: TextStyle(
                                 fontSize: 19,
                                 fontWeight: FontWeight.bold,
@@ -111,7 +164,7 @@ class CharacterProfileDialog extends StatelessWidget {
                               ),
                             ),
                           ),
-                          if (character.isCustom)
+                          if (widget.character.isCustom)
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                               margin: const EdgeInsets.only(right: 6),
@@ -136,7 +189,7 @@ class CharacterProfileDialog extends StatelessWidget {
                                 const Icon(Icons.star_rounded, size: 16, color: AppColors.warning),
                                 const SizedBox(width: 3),
                                 Text(
-                                  character.rating.toString(),
+                                  widget.character.rating.toString(),
                                   style: const TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.bold,
@@ -152,7 +205,7 @@ class CharacterProfileDialog extends StatelessWidget {
                       Row(
                         children: [
                           Text(
-                            character.categoryLabel,
+                            widget.character.categoryLabel,
                             style: const TextStyle(
                               fontSize: 12,
                               color: AppColors.primaryLight,
@@ -163,15 +216,15 @@ class CharacterProfileDialog extends StatelessWidget {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                             decoration: BoxDecoration(
-                              color: (character.gender == 'male' ? Colors.blue : Colors.pink).withValues(alpha: 0.12),
+                              color: (widget.character.gender == 'male' ? Colors.blue : Colors.pink).withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
-                              character.gender == 'male' ? 'Nam' : 'Nữ',
+                              widget.character.gender == 'male' ? 'Nam' : 'Nữ',
                               style: TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.bold,
-                                color: character.gender == 'male' ? Colors.blue : Colors.pink,
+                                color: widget.character.gender == 'male' ? Colors.blue : Colors.pink,
                               ),
                             ),
                           ),
@@ -179,7 +232,7 @@ class CharacterProfileDialog extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        'Phong cách: ${character.speakingStyle}',
+                        'Phong cách: ${widget.character.speakingStyle}',
                         style: TextStyle(fontSize: 12, color: textSecondary),
                       ),
                     ],
@@ -191,7 +244,7 @@ class CharacterProfileDialog extends StatelessWidget {
 
             // Short Description
             Text(
-              character.shortDescription,
+              widget.character.shortDescription,
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
@@ -230,7 +283,7 @@ class CharacterProfileDialog extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    character.detailedBio,
+                    widget.character.detailedBio,
                     style: TextStyle(fontSize: 13, color: textSecondary, height: 1.45),
                   ),
                 ],
@@ -238,14 +291,17 @@ class CharacterProfileDialog extends StatelessWidget {
             ),
             const SizedBox(height: 14),
 
-            // Dedicated Voice Configuration Box with Sample Greeting
+            // Dedicated Voice Configuration Box with Interactive Preview
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
                 color: cardBg,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: isDark ? AppColors.darkCardBorder : AppColors.lightCardBorder,
+                  color: _isPlayingPreview
+                      ? AppColors.primary
+                      : (isDark ? AppColors.darkCardBorder : AppColors.lightCardBorder),
+                  width: _isPlayingPreview ? 1.5 : 1,
                 ),
               ),
               child: Column(
@@ -253,42 +309,59 @@ class CharacterProfileDialog extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.record_voice_over_rounded, size: 18, color: AppColors.primaryLight),
+                      Icon(
+                        _isPlayingPreview ? Icons.graphic_eq_rounded : Icons.record_voice_over_rounded,
+                        size: 20,
+                        color: _isPlayingPreview ? AppColors.accentNeon : AppColors.primaryLight,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'Giọng nói riêng: ${character.voiceConfig.voiceName} (${character.voiceConfig.speed}x • ${character.voiceConfig.pitch}p)',
+                          'Giọng nói riêng: ${widget.character.voiceConfig.voiceName} (${widget.character.voiceConfig.speed}x • ${widget.character.voiceConfig.pitch}p)',
                           style: TextStyle(
-                            fontSize: 12,
+                            fontSize: 12.5,
                             fontWeight: FontWeight.bold,
                             color: textPrimary,
                           ),
                         ),
                       ),
-                      IconButton(
-                        tooltip: 'Nghe giọng mẫu',
-                        icon: const Icon(Icons.volume_up_rounded, color: AppColors.primaryLight),
-                        onPressed: () {
-                          final settings = context.read<SettingsBloc>().state;
-                          final coordinator = context.read<ChatBloc>().coordinator;
-                          coordinator.ttsQueueManager.stopAndClear();
-                          coordinator.ttsQueueManager.enqueue(
-                            character.sampleGreeting,
-                            settings.voiceConfig,
-                            voiceConfig: character.voiceConfig,
-                            geminiApiKey: settings.apiKeys.geminiKey,
-                          );
-                        },
-                      ),
                     ],
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 8),
                   Text(
-                    'Lời chào mẫu: "${character.sampleGreeting}"',
+                    'Lời chào mẫu: "${widget.character.sampleGreeting}"',
                     style: TextStyle(
                       fontSize: 12,
                       fontStyle: FontStyle.italic,
                       color: textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  // Real Preview Button (Nghe thử giọng nói trước khi chat)
+                  OutlinedButton.icon(
+                    onPressed: _toggleVoicePreview,
+                    icon: Icon(
+                      _isPlayingPreview ? Icons.stop_circle_rounded : Icons.play_circle_fill_rounded,
+                      size: 20,
+                      color: _isPlayingPreview ? AppColors.error : AppColors.primaryLight,
+                    ),
+                    label: Text(
+                      _isPlayingPreview ? 'Dừng phát âm thử' : '▶ Nghe thử giọng nói trước khi chat',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: _isPlayingPreview ? AppColors.error : AppColors.primaryLight,
+                      ),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(
+                        color: _isPlayingPreview ? AppColors.error : AppColors.primaryLight,
+                        width: 1.2,
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      backgroundColor: (_isPlayingPreview ? AppColors.error : AppColors.primary)
+                          .withValues(alpha: 0.08),
                     ),
                   ),
                 ],
@@ -300,7 +373,7 @@ class CharacterProfileDialog extends StatelessWidget {
             Wrap(
               spacing: 6,
               runSpacing: 6,
-              children: character.tags.map((tag) {
+              children: widget.character.tags.map((tag) {
                 return Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
@@ -320,14 +393,14 @@ class CharacterProfileDialog extends StatelessWidget {
             ElevatedButton.icon(
               onPressed: () {
                 Navigator.of(context).pop();
-                context.read<ChatBloc>().add(CreateSessionWithCharacterEvent(character));
+                context.read<ChatBloc>().add(CreateSessionWithCharacterEvent(widget.character));
                 Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const ChatScreen()),
                 );
               },
               icon: const Icon(Icons.chat_bubble_outline_rounded, color: Colors.white),
               label: Text(
-                'Trò chuyện ngay với ${character.name}',
+                'Trò chuyện ngay với ${widget.character.name}',
                 style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
               ),
               style: ElevatedButton.styleFrom(
@@ -342,21 +415,21 @@ class CharacterProfileDialog extends StatelessWidget {
             const SizedBox(height: 10),
 
             // BUTTON 2: Tùy chỉnh nhân vật (Custom Character)
-            if (!character.isCustom)
+            if (!widget.character.isCustom)
               OutlinedButton.icon(
                 onPressed: () {
                   Navigator.of(context).pop();
                   Navigator.of(context).push(
                     MaterialPageRoute(
                       builder: (_) => CharacterEditorScreen(
-                        baseCharacter: character,
+                        baseCharacter: widget.character,
                         mode: CharacterEditorMode.customizeBase,
                       ),
                     ),
                   );
                 },
                 icon: const Icon(Icons.tune_rounded, size: 18),
-                label: Text('Tùy chỉnh giọng từ ${character.name}'),
+                label: Text('Tùy chỉnh giọng từ ${widget.character.name}'),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppColors.primaryLight,
                   side: const BorderSide(color: AppColors.primaryLight),
@@ -376,7 +449,7 @@ class CharacterProfileDialog extends StatelessWidget {
                         Navigator.of(context).push(
                           MaterialPageRoute(
                             builder: (_) => CharacterEditorScreen(
-                              editingCharacter: character,
+                              editingCharacter: widget.character,
                               mode: CharacterEditorMode.editCustom,
                             ),
                           ),
@@ -395,10 +468,10 @@ class CharacterProfileDialog extends StatelessWidget {
                     child: OutlinedButton.icon(
                       onPressed: () {
                         Navigator.of(context).pop();
-                        context.read<ChatBloc>().add(DeleteCustomCharacterEvent(character.id));
+                        context.read<ChatBloc>().add(DeleteCustomCharacterEvent(widget.character.id));
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text('Đã xóa nhân vật tùy chỉnh "${character.name}"'),
+                            content: Text('Đã xóa nhân vật tùy chỉnh "${widget.character.name}"'),
                             backgroundColor: AppColors.warning,
                           ),
                         );

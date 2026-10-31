@@ -145,10 +145,12 @@ class _CharacterEditorScreenState extends State<CharacterEditorScreen> {
   }
 
   Future<void> _previewSelectedVoice() async {
-    final tts = context.read<SettingsBloc>().ttsService;
+    final coordinator = context.read<ChatBloc>().coordinator;
+    final settings = context.read<SettingsBloc>().state;
+
     if (_isPlayingTest) {
-      await tts.stop();
-      setState(() => _isPlayingTest = false);
+      await coordinator.ttsQueueManager.stopAndClear();
+      if (mounted) setState(() => _isPlayingTest = false);
       return;
     }
 
@@ -157,26 +159,42 @@ class _CharacterEditorScreenState extends State<CharacterEditorScreen> {
     try {
       final sampleText = _greetingController.text.trim().isNotEmpty
           ? _greetingController.text.trim()
-          : 'Xin chào bạn! Đây là giọng nói thử nghiệm của tôi.';
+          : 'Xin chào bạn! Rất vui được trò chuyện cùng bạn. Đây là giọng nói thử nghiệm của tôi.';
 
+      final voicePreset = PresetVoices.findVoiceSafe(_selectedVoiceId, fallbackGender: _gender);
       final voiceConfig = VoiceConfiguration(
         voiceConfigId: 'cfg_preview_${DateTime.now().millisecondsSinceEpoch}',
-        voiceId: _selectedVoiceId,
-        voiceName: _nameController.text.trim(),
+        providerId: voicePreset.engineType,
+        voiceId: voicePreset.id,
+        voiceName: voicePreset.name,
+        languageCode: 'vi-VN',
         gender: _gender,
+        speakingStyle: _speakingStyle,
         speed: _speed,
         pitch: _pitch,
+        isAvailable: true,
+        edgeVoiceName: voicePreset.edgeVoiceName,
+        remoteVoiceId: voicePreset.remoteVoiceId,
+        nativeSystemVoiceName: voicePreset.nativeSystemVoiceName,
       );
 
-      final settings = context.read<SettingsBloc>().state;
-      await tts.stop();
-      await tts.speak(
+      await coordinator.ttsQueueManager.stopAndClear();
+
+      void onFinished() {
+        if (mounted) {
+          setState(() => _isPlayingTest = false);
+        }
+      }
+
+      coordinator.ttsQueueManager.addFinishedListener(onFinished);
+
+      coordinator.ttsQueueManager.enqueue(
         sampleText,
-        config: settings.voiceConfig,
+        settings.voiceConfig,
         voiceConfig: voiceConfig,
         geminiApiKey: settings.apiKeys.geminiKey,
       );
-    } finally {
+    } catch (_) {
       if (mounted) setState(() => _isPlayingTest = false);
     }
   }

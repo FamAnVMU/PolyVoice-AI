@@ -26,6 +26,7 @@ class _ChatScreenState extends State<ChatScreen> {
   final ScrollController _scrollController = ScrollController();
   bool _isNearBottom = true;
   int _visibleMessageCount = 25;
+  bool _autoVoicePlayback = true; // Bật/tắt phát âm giọng nói tự động của nhân vật khi nhận câu trả lời
 
   @override
   void initState() {
@@ -370,6 +371,35 @@ class _ChatScreenState extends State<ChatScreen> {
             },
           ),
           actions: [
+            // Toggle Auto-Voice Playback in Chat Room
+            IconButton(
+              icon: Icon(
+                _autoVoicePlayback ? Icons.volume_up_rounded : Icons.volume_off_rounded,
+                color: _autoVoicePlayback ? AppColors.accentNeon : Colors.grey,
+                size: 22,
+              ),
+              tooltip: _autoVoicePlayback ? 'Tắt giọng nói AI tự động' : 'Bật giọng nói AI tự động',
+              onPressed: () {
+                setState(() {
+                  _autoVoicePlayback = !_autoVoicePlayback;
+                });
+                if (!_autoVoicePlayback) {
+                  context.read<ChatBloc>().add(StopTtsPlaybackEvent());
+                }
+                ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      _autoVoicePlayback
+                          ? '🔊 Đã bật giọng nói của nhân vật cho câu trả lời'
+                          : '🔇 Đã tắt giọng nói tự động',
+                    ),
+                    duration: const Duration(seconds: 2),
+                    backgroundColor: _autoVoicePlayback ? AppColors.primary : AppColors.darkCard,
+                  ),
+                );
+              },
+            ),
             // Button to enter Continuous Real-Time Voice Mode
             IconButton(
               icon: Container(
@@ -529,7 +559,9 @@ class _ChatScreenState extends State<ChatScreen> {
                       isListening: chatState.isListeningStt,
                       transcriptPreview: chatState.sttTranscriptPreview,
                       onSendMessage: (text) {
-                        context.read<ChatBloc>().add(SendTextMessageEvent(text));
+                        context.read<ChatBloc>().add(
+                              SendTextMessageEvent(text, enableVoicePlayback: _autoVoicePlayback),
+                            );
                       },
                       onStartListening: () {
                         context.read<ChatBloc>().add(StartTapToSpeakEvent());

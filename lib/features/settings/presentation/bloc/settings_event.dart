@@ -38,6 +38,8 @@ class TestApiKeyConnectionEvent extends SettingsEvent {
   List<Object?> get props => [provider, apiKey, model, baseUrl];
 }
 
+class TestAllApiKeysEvent extends SettingsEvent {}
+
 class DeleteProviderKeyEvent extends SettingsEvent {
   final String provider;
   const DeleteProviderKeyEvent(this.provider);
