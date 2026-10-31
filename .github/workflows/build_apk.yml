@@ -1,9 +1,13 @@
-name: Build Android APK (PolyVoice AI)
+name: Build Android APK & GitHub Release (PolyVoice AI)
 
 on:
   push:
     branches: [ main, master ]
+    tags: [ 'v*' ]
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -49,10 +53,31 @@ jobs:
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
+      - name: Prepare Named APK
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME:-v1.3.0}"
+          cp build/app/outputs/flutter-apk/app-release.apk "build/app/outputs/flutter-apk/PolyVoice-AI-${VERSION}.apk"
+
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: PolyVoice-AI-Release-APK
-          path: build/app/outputs/flutter-apk/app-release.apk
+          path: build/app/outputs/flutter-apk/*.apk
           if-no-files-found: error
           retention-days: 14
+
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            build/app/outputs/flutter-apk/PolyVoice-AI-*.apk
+            build/app/outputs/flutter-apk/app-release.apk
+          name: PolyVoice AI Release ${{ github.ref_name }}
+          tag_name: ${{ github.ref_name }}
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
