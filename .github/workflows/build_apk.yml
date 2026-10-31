@@ -56,14 +56,24 @@ jobs:
       - name: Prepare Named APK
         shell: bash
         run: |
-          VERSION="${GITHUB_REF_NAME:-v1.3.1}"
-          cp build/app/outputs/flutter-apk/app-release.apk "build/app/outputs/flutter-apk/PolyVoice-AI-${VERSION}.apk"
+          VERSION="${GITHUB_REF_NAME}"
+          if [ -z "$VERSION" ]; then
+            # Extract version directly from pubspec.yaml if triggered via branch push or manual dispatch
+            VERSION="v$(grep '^version: ' pubspec.yaml | sed 's/version: //; s/+.*//')"
+          fi
+          # Ensure consistent format PolyVoice-AI-vX.Y.Z.apk
+          case "$VERSION" in
+            v*) FORMATTED_NAME="PolyVoice-AI-${VERSION}.apk" ;;
+            *)  FORMATTED_NAME="PolyVoice-AI-v${VERSION}.apk" ;;
+          esac
+          cp build/app/outputs/flutter-apk/app-release.apk "build/app/outputs/flutter-apk/${FORMATTED_NAME}"
+          rm -f build/app/outputs/flutter-apk/app-release.apk
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: PolyVoice-AI-Release-APK
-          path: build/app/outputs/flutter-apk/*.apk
+          path: build/app/outputs/flutter-apk/PolyVoice-AI-*.apk
           if-no-files-found: error
           retention-days: 14
 
@@ -73,7 +83,6 @@ jobs:
         with:
           files: |
             build/app/outputs/flutter-apk/PolyVoice-AI-*.apk
-            build/app/outputs/flutter-apk/app-release.apk
           name: PolyVoice AI Release ${{ github.ref_name }}
           tag_name: ${{ github.ref_name }}
           generate_release_notes: true
